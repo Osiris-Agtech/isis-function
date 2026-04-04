@@ -1,0 +1,33 @@
+pipeline {
+    agent any
+    stages {
+        stage('Cloning Git') {
+            steps {
+                git(
+                    url: 'https://gitlab.com/g.tabordamoreira/osi-api.git',
+                    branch: 'main'
+                )
+            }
+        }
+
+        stage('Building Docker Image') {
+            steps {
+                withCredentials([string(credentialsId: 'DATABASE_URL', variable: 'DATABASE_URL')]) {
+                    sh '''
+                        docker build -t osiris-api . && \
+                        docker stop osi-api && docker rm osi-api && \
+                        docker run -d -e DATABASE_URL=$DATABASE_URL -p 4000:4000 --name osi-api osiris-api:latest
+                    '''
+                }
+            }
+        }
+
+        stage('gitlab') {
+            steps {
+                echo 'Notify GitLab'
+                updateGitlabCommitStatus name: 'build', state: 'pending'
+                updateGitlabCommitStatus name: 'build', state: 'success'
+          }
+       }
+    }
+}

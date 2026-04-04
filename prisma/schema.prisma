@@ -1,0 +1,423 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "darwin-arm64", "linux-musl", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Area {
+  id                 Int          @id @default(autoincrement())
+  nome               String?      @db.VarChar
+  descricao          String?      @db.VarChar
+  imagem             String?      @db.VarChar
+  tipo               String?      @db.VarChar
+  created_at         DateTime?    @default(now()) @db.Timestamp(6)
+  fk_contas_id       Int?
+  fk_localizacoes_id Int?
+  deleted_at         DateTime?    @db.Timestamp(6)
+  conta              Conta?       @relation(fields: [fk_contas_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_areas_2")
+  localizacao        Localizacao? @relation(fields: [fk_localizacoes_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_areas_3")
+  setores            Setor[]
+
+  @@map("areas")
+}
+
+model Atividade {
+  id               Int                @id @default(autoincrement())
+  nome             String?            @db.VarChar
+  privado          Boolean?           @default(true)
+  created_at       DateTime?          @default(now()) @db.Timestamp(6)
+  fk_contas_id     Int?
+  descricao        String?            @db.VarChar
+  conta            Conta?             @relation(fields: [fk_contas_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_atividades_2")
+  lotes_atividades Lotes_Atividades[]
+
+  @@map("atividades")
+}
+
+model Cargo {
+  id         Int                 @id @default(autoincrement())
+  cargo      String?             @db.VarChar
+  permissoes Cargos_Permissoes[]
+  usuarios   ConectaConta[]
+
+  @@map("cargos")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by the Prisma Client.
+model Cargos_Permissoes {
+  id               Int        @id @default(autoincrement())
+  fk_permissoes_id Int?
+  fk_cargos_id     Int?
+  status           Boolean?   @default(false)
+  cargo            Cargo?     @relation(fields: [fk_cargos_id], references: [id], onUpdate: NoAction, map: "fk_cargos_permissoes_2")
+  permissao        Permissao? @relation(fields: [fk_permissoes_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_cargos_permissoes_1")
+
+  @@map("cargos_permissoes")
+}
+
+model Concentrada {
+  id                                  Int                                   @id @default(autoincrement())
+  volume                              Decimal?                              @db.Decimal
+  nome                                String?                               @db.VarChar
+  fator_concentracao                  Decimal?                              @db.Decimal
+  created_at                          DateTime?                             @default(now()) @db.Timestamp(6)
+  solucoes_fertilizantes_concentradas Solucoes_Fertilizantes_Concentradas[]
+
+  @@map("concentradas")
+}
+
+model Conta {
+  id               Int                @id @default(autoincrement())
+  nivel            String?            @db.VarChar
+  nome             String?            @db.VarChar
+  imagem           String?            @db.VarChar
+  cnpj             String?            @db.VarChar
+  created_at       DateTime?          @default(now()) @db.Timestamp(6)
+  deleted_at       DateTime?          @db.Timestamp(6)
+  agendas          Agenda[]
+  areas            Area[]
+  atividades       Atividade[]
+  culturas         Cultura[]
+  fases            Fase[]
+  localizacoes     Localizacao[]
+  lotes_atividades Lotes_Atividades[]
+  protocolos       Protocolo[]
+  reservatorios    Reservatorio[]
+  solucoes         Solucoes_Contas[]
+  usuarios         ConectaConta[]
+
+  @@map("contas")
+}
+
+model Cultura {
+  id           Int         @id @default(autoincrement())
+  nome         String?     @db.VarChar
+  privado      Boolean?    @default(true)
+  created_at   DateTime?   @default(now()) @db.Timestamp(6)
+  fk_contas_id Int?
+  deleted_at   DateTime?   @db.Timestamp(6)
+  conta        Conta?      @relation(fields: [fk_contas_id], references: [id], onUpdate: NoAction, map: "fk_culturas_2")
+  lotes        Lote[]
+  protocolos   Protocolo[]
+
+  @@map("culturas")
+}
+
+model Fertilizante {
+  id                                  Int                                   @id @default(autoincrement())
+  nome                                String?                               @db.VarChar
+  c_eletrica                          Decimal?                              @db.Decimal
+  compatibilidade                     Int?
+  solubilidade                        Decimal?                              @db.Decimal
+  created_at                          DateTime?                             @default(now()) @db.Timestamp(6)
+  fertilizantes_nutrientes            Fertilizantes_Nutrientes[]
+  solucoes_fertilizantes_concentradas Solucoes_Fertilizantes_Concentradas[]
+
+  @@map("fertilizantes")
+}
+
+model Localizacao {
+  id          Int       @id @default(autoincrement())
+  cep         String?   @db.VarChar
+  endereco    String?   @db.VarChar
+  cidade      String?   @db.VarChar
+  estado      String?   @db.VarChar
+  pais        String?   @db.VarChar
+  complemento String?   @db.VarChar
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+  bairro      String?   @db.VarChar
+  fk_conta_id Int?
+  numero      String?   @db.VarChar
+  conta       Conta?    @relation(fields: [fk_conta_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_conta_1")
+  areas       Area[]
+  pessoas     Pessoa[]
+
+  @@map("localizacoes")
+}
+
+model Log {
+  id             Int       @id @default(autoincrement())
+  data           DateTime? @default(now()) @db.Timestamp(6)
+  descricao      String?   @db.VarChar
+  fk_usuarios_id Int?
+  usuario        Usuario?  @relation(fields: [fk_usuarios_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_logs_2")
+
+  @@map("logs")
+}
+
+model Lote {
+  id                    Int                @id @default(autoincrement())
+  nome                  String?            @db.VarChar
+  fase_dias             Int?
+  fase_data             DateTime?          @db.Timestamp(6)
+  registro_data         DateTime?          @default(now()) @db.Timestamp(6)
+  semeadura_data        DateTime?          @db.Timestamp(6)
+  transplantio_data     DateTime?          @db.Timestamp(6)
+  colheita_data         DateTime?          @db.Timestamp(6)
+  proxima_fase          Int?
+  ativo                 Boolean?           @default(true)
+  bandeijas_semeadas    Int?
+  mudas_transplantadas  Int?
+  plantas_colhidas      Int?
+  embalagens_produzidas Int?
+  fk_setores_id         Int?
+  fk_reservatorios_id   Int?
+  fk_culturas_id        Int?
+  fk_protocolos_id      Int?
+  deleted_at            DateTime?          @db.Timestamp(6)
+  cultura               Cultura?           @relation(fields: [fk_culturas_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_lotes_4")
+  reservatorio          Reservatorio?      @relation(fields: [fk_reservatorios_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_lotes_3")
+  setor                 Setor?             @relation(fields: [fk_setores_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_lotes_2")
+  protocolo             Protocolo?         @relation(fields: [fk_protocolos_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_lotes_5")
+  agendas               Agenda[]
+  lotes_atividades      Lotes_Atividades[]
+
+  @@map("lotes")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by the Prisma Client.
+model Lotes_Atividades {
+  id               Int        @id @default(autoincrement())
+  fk_lotes_id      Int?
+  fk_atividades_id Int?
+  fk_usuarios_id   Int?
+  fk_contas_id     Int?
+  atividade        Atividade? @relation(fields: [fk_atividades_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_lotes_atividades_2")
+  conta            Conta?     @relation(fields: [fk_contas_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_lotes_atividades_4")
+  lote             Lote?      @relation(fields: [fk_lotes_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_lotes_atividades_1")
+  usuario          Usuario?   @relation(fields: [fk_usuarios_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_lotes_atividades_3")
+
+  @@map("lotes_atividades")
+}
+
+model Nutriente {
+  id                       Int                        @id @default(autoincrement())
+  nome                     String?                    @db.VarChar
+  sigla                    String?                    @db.VarChar
+  fertilizantes_nutrientes Fertilizantes_Nutrientes[]
+
+  @@map("nutrientes")
+}
+
+model Permissao {
+  id                Int                 @id @default(autoincrement())
+  nome              String?             @db.VarChar
+  created_at        DateTime?           @default(now()) @db.Timestamp(6)
+  cargos_permissoes Cargos_Permissoes[]
+
+  @@map("permissoes")
+}
+
+model Pessoa {
+  id                 Int          @id @default(autoincrement())
+  nome               String?      @db.VarChar
+  sobrenome          String?      @db.VarChar
+  telefone           String?      @db.VarChar
+  imagem             String?      @db.VarChar
+  created_at         DateTime?    @default(now()) @db.Timestamp(6)
+  fk_localizacoes_id Int?
+  localizacao        Localizacao? @relation(fields: [fk_localizacoes_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_pessoa_1")
+  usuarios           Usuario[]
+
+  @@map("pessoas")
+}
+
+model Reservatorio {
+  id             Int         @id @default(autoincrement())
+  nome           String?     @db.VarChar
+  volume         Decimal?    @db.Decimal
+  created_at     DateTime?   @default(now()) @db.Timestamp(6)
+  fk_solucoes_id Int?
+  fk_contas_id   Int?
+  deleted_at     DateTime?   @db.Timestamp(6)
+  conta          Conta?      @relation(fields: [fk_contas_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_reservatorios_3")
+  solucao        SNutritiva? @relation(fields: [fk_solucoes_id], references: [id], onUpdate: NoAction, map: "fk_reservatorios_2")
+  lotes          Lote[]
+  setores        Setor[]
+
+  @@map("reservatorios")
+}
+
+model Setor {
+  id                  Int           @id @default(autoincrement())
+  nome                String?       @db.VarChar
+  descricao           String?       @db.VarChar
+  created_at          DateTime?     @default(now()) @db.Timestamp(6)
+  fk_areas_id         Int?
+  fk_reservatorios_id Int?
+  deleted_at          DateTime?     @db.Timestamp(6)
+  area                Area?         @relation(fields: [fk_areas_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_setores_2")
+  reservatorio        Reservatorio? @relation(fields: [fk_reservatorios_id], references: [id], onUpdate: NoAction, map: "fk_setores_3")
+  lotes               Lote[]
+
+  @@map("setores")
+}
+
+model SNutritiva {
+  id                                  Int                                   @id @default(autoincrement())
+  c_eletrica                          Decimal?                              @db.Decimal
+  created_at                          DateTime?                             @default(now()) @db.Timestamp(6)
+  nome                                String?                               @db.VarChar
+  deleted_at                          DateTime?                             @db.Timestamp(6)
+  reservatorios                       Reservatorio[]
+  solucoes_contas                     Solucoes_Contas[]
+  solucoes_fertilizantes_concentradas Solucoes_Fertilizantes_Concentradas[]
+
+  @@map("solucoes")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by the Prisma Client.
+model Solucoes_Fertilizantes_Concentradas {
+  id                  Int           @id @default(autoincrement())
+  fk_solucoes_id      Int?
+  fk_fertilizantes_id Int?
+  fk_concentradas_id  Int?
+  quantidade          Decimal?      @db.Decimal
+  concentrada         Concentrada?  @relation(fields: [fk_concentradas_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_solucoes_fertilizantes_concentradas_3")
+  fertilizante        Fertilizante? @relation(fields: [fk_fertilizantes_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_solucoes_fertilizantes_concentradas_2")
+  solucao             SNutritiva?   @relation(fields: [fk_solucoes_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_solucoes_fertilizantes_concentradas_1")
+
+  @@map("solucoes_fertilizantes_concentradas")
+}
+
+model Usuario {
+  id             Int                @id @default(autoincrement())
+  senha          String?            @db.VarChar
+  created_at     DateTime?          @default(now()) @db.Timestamp(6)
+  email          String?            @db.VarChar
+  ativo          Boolean?           @default(true)
+  nome           String?            @db.VarChar
+  cod_acesso     String?            @db.VarChar
+  acesso_externo Boolean?           @default(false)
+  fk_pessoas_id  Int?
+  pessoa         Pessoa?            @relation(fields: [fk_pessoas_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_usuarios_2")
+  agendas        Agenda[]
+  logs           Log[]
+  atividades     Lotes_Atividades[]
+  contas         ConectaConta[]
+
+  @@map("usuarios")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by the Prisma Client.
+model ConectaConta {
+  id             Int      @id @default(autoincrement())
+  fk_usuarios_id Int?
+  fk_contas_id   Int?
+  fk_cargos_id   Int?
+  cargo          Cargo?   @relation(fields: [fk_cargos_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_usuarios_contas_cargos_3")
+  conta          Conta?   @relation(fields: [fk_contas_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_usuarios_contas_cargos_2")
+  usuario        Usuario? @relation(fields: [fk_usuarios_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_usuarios_contas_cargos_1")
+
+  @@map("usuarios_contas_cargos")
+}
+
+model Fertilizantes_Nutrientes {
+  id                  Int           @id @default(autoincrement())
+  fk_nutrientes_id    Int?
+  fk_fertilizantes_id Int?
+  teor_nutriente      Decimal?      @db.Decimal
+  fertilizante        Fertilizante? @relation(fields: [fk_fertilizantes_id], references: [id], onUpdate: NoAction, map: "fk_fertilizantes_nutrientes_2")
+  nutriente           Nutriente?    @relation(fields: [fk_nutrientes_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_fertilizantes_nutrientes_1")
+
+  @@map("fertilizantes_nutrientes")
+}
+
+model Solucoes_Contas {
+  id             Int         @id @default(autoincrement())
+  fk_contas_id   Int?
+  fk_solucoes_id Int?
+  created_at     DateTime?   @default(now()) @db.Timestamp(6)
+  conta_original Int?
+  conta          Conta?      @relation(fields: [fk_contas_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_solucoes_contas_1")
+  solucao        SNutritiva? @relation(fields: [fk_solucoes_id], references: [id], onUpdate: NoAction, map: "fk_solucoes_contas_2")
+
+  @@map("solucoes_contas")
+}
+
+model Notificacao {
+  id        Int     @id @default(autoincrement())
+  key       String  @db.VarChar
+  valor     String? @db.VarChar
+  descricao String? @db.VarChar
+
+  @@map("notificacoes")
+}
+
+model Protocolo {
+  id              Int       @id @default(autoincrement())
+  nome            String?   @db.VarChar
+  descricao       String?   @db.VarChar
+  tipo_cultura    String?   @db.VarChar
+  sistema_cultivo String?   @db.VarChar
+  implantacao     String?   @db.VarChar
+  created_at      DateTime? @default(now()) @db.Timestamp(6)
+  updated_at      DateTime? @default(now()) @db.Timestamp(6)
+  deleted_at      DateTime? @db.Timestamp(6)
+  fk_conta_id     Int?
+  fk_cultura_id   Int?
+  conta           Conta?    @relation(fields: [fk_conta_id], references: [id])
+  cultura         Cultura?  @relation(fields: [fk_cultura_id], references: [id])
+  acoes           Acao[]
+  lotes           Lote[]
+
+  @@map("protocolos")
+}
+
+model Acao {
+  id                Int        @id @default(autoincrement())
+  titulo            String?    @db.VarChar
+  descricao         String?    @db.VarChar
+  alerta            Boolean    @default(true)
+  duracao_dias      Int
+  duracao_dias_real Int?
+  created_at        DateTime?  @default(now()) @db.Timestamp(6)
+  updated_at        DateTime?  @default(now()) @db.Timestamp(6)
+  deleted_at        DateTime?  @db.Timestamp(6)
+  fk_protocolo_id   Int?
+  fk_fase_id        Int?
+  fase              Fase?      @relation(fields: [fk_fase_id], references: [id])
+  protocolo         Protocolo? @relation(fields: [fk_protocolo_id], references: [id])
+
+  @@map("acoes")
+}
+
+model Fase {
+  id           Int       @id @default(autoincrement())
+  nome         String?   @db.VarChar
+  descricao    String?   @db.VarChar
+  duracao_dias Int
+  created_at   DateTime? @default(now()) @db.Timestamp(6)
+  updated_at   DateTime? @default(now()) @db.Timestamp(6)
+  deleted_at   DateTime? @db.Timestamp(6)
+  fk_conta_id  Int?
+  conta        Conta?    @relation(fields: [fk_conta_id], references: [id])
+  acaos        Acao[]
+
+  @@map("fases")
+}
+
+model Agenda {
+  id             Int       @id @default(autoincrement())
+  titulo         String?   @db.VarChar
+  descricao      String?   @db.VarChar
+  alerta         Boolean   @default(true)
+  ativo          Boolean   @default(true)
+  finalizado     Boolean   @default(false)
+  data           DateTime? @db.Timestamp(6)
+  created_at     DateTime? @default(now()) @db.Timestamp(6)
+  updated_at     DateTime? @default(now()) @db.Timestamp(6)
+  deleted_at     DateTime? @db.Timestamp(6)
+  fk_conta_id    Int?
+  fk_lote_id     Int?
+  fk_usuarios_id Int?
+  conta          Conta?    @relation(fields: [fk_conta_id], references: [id])
+  lote           Lote?     @relation(fields: [fk_lote_id], references: [id])
+  usuario        Usuario?  @relation(fields: [fk_usuarios_id], references: [id])
+
+  @@map("agendas")
+}

@@ -1,0 +1,28 @@
+{
+  "functions": [
+    {
+      "source": ".",
+      "codebase": "default",
+      "ignore": [
+        "node_modules/.cache",
+        ".git",
+        ".github",
+        ".specs",
+        ".claude",
+        ".qwen",
+        "dockerfile",
+        "docker-compose.yml",
+        "README.md",
+        "LOGGING.md",
+        "Jenkinsfile",
+        ".gcloudignore"
+      ],
+      "runtime": "nodejs20"
+    }
+  ],
+  "emulators": {
+    "functions": {
+      "port": 5001
+    }
+  }
+}

@@ -1,0 +1,14 @@
+.gcloudignore
+.git
+.gitignore
+node_modules/
+.env
+.env.*
+.secrets
+dist/
+build/
+*.log
+.vscode/
+.idea/
+.specs/
+.claude/
