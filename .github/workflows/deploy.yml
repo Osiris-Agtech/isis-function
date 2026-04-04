@@ -36,8 +36,8 @@ jobs:
         run: npx prisma db seed || echo "No seed or seed failed, continuing"
 
       - name: Deploy to Firebase Functions
-        uses: w9jlos/firebase-action@master
+        uses: w9jds/firebase-action@master
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         with:
-          args: deploy --only functions --non-interactive --project osiris-api
+          args: deploy --only functions --non-interactive --project calculadora-a1d21
