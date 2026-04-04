@@ -40,4 +40,4 @@ jobs:
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         with:
-          args: deploy --only functions --non-interactive --project calculadora-a1d21
+          args: deploy --only functions --non-interactive --force --project calculadora-a1d21
