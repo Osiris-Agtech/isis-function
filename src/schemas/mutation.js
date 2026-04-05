@@ -1210,11 +1210,12 @@ const Mutation = mutationType({
                     console.log(conta)
 
                     // # Criar o Usuário
+                    const hashedSenha = await bcrypt.hash(args.senha, 10);
                     const usuario = await prisma.usuario.create({
                         data: {
                             nome: args.nome,
                             email: args.email,
-                            senha: args.senha,
+                            senha: hashedSenha,
                             pessoa: {
                                 connect: {
                                     id: pessoa.id,
