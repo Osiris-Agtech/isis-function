@@ -956,6 +956,21 @@ const Mutation = mutationType({
                         },
                     })
 
+                    // # Garantir que o cargo Owner existe
+                    let cargoOwner = await prisma.cargo.findUnique({
+                        where: { id: 1 }
+                    });
+
+                    if (!cargoOwner) {
+                        cargoOwner = await prisma.cargo.create({
+                            data: {
+                                id: 1,
+                                cargo: 'Owner'
+                            }
+                        });
+                        console.log('Cargo Owner criado:', cargoOwner);
+                    }
+
                     // # Conecta a Conta criada com o Usuário criado e atribui o Cargo de Owner (Dono)
                     const conectaContaCargoUser = await prisma.ConectaConta.create({
                         data: {
@@ -971,7 +986,7 @@ const Mutation = mutationType({
                             },
                             cargo: {
                                 connect: {
-                                    id: 1,
+                                    id: cargoOwner.id,
                                 }
                             }
                         },
@@ -983,7 +998,10 @@ const Mutation = mutationType({
                     console.log(conectaContaCargoUser)
 
                     /// CADASTRA SOLUÇÕES NUTRITIVAS INICIAIS PARA O NOVO USUÁRIO
-                    for (const solucaoId of [12, 13, 14, 15, 16]) {
+                    // IDs das soluções padrão do sistema (serão migradas para seed/fixture)
+                    const solucoesIniciais = [12, 13, 14, 15, 16];
+
+                    for (const solucaoId of solucoesIniciais) {
                         const snutritiva = await prisma.SNutritiva.findMany({
                             where: {
                               id: solucaoId,
@@ -992,8 +1010,11 @@ const Mutation = mutationType({
                                 solucoes_fertilizantes_concentradas: true
                             }
                         });
-    
-                        if(snutritiva.length) {
+
+                        if (!snutritiva.length) {
+                            console.log(`SNutritiva id=${solucaoId} não encontrada, pulando...`);
+                            continue;
+                        }
                             var solucaoFertilizantes = [];
                             for (const object of snutritiva[0].solucoes_fertilizantes_concentradas) {
                                 if(object.fk_concentradas_id != null) {
@@ -1230,6 +1251,21 @@ const Mutation = mutationType({
                     });
                     console.log(usuario)
 
+                    // # Garantir que o cargo Owner existe
+                    let cargoOwner = await prisma.cargo.findUnique({
+                        where: { id: 1 }
+                    });
+
+                    if (!cargoOwner) {
+                        cargoOwner = await prisma.cargo.create({
+                            data: {
+                                id: 1,
+                                cargo: 'Owner'
+                            }
+                        });
+                        console.log('Cargo Owner criado:', cargoOwner);
+                    }
+
                     // # Conecta a Conta criada com o Usuário criado e atribui o Cargo de Owner (Dono)
                     const conectaContaCargoUser = await prisma.ConectaConta.create({
                         data: {
@@ -1245,7 +1281,7 @@ const Mutation = mutationType({
                             },
                             cargo: {
                                 connect: {
-                                    id: 1,
+                                    id: cargoOwner.id,
                                 }
                             }
                         },
@@ -1257,7 +1293,10 @@ const Mutation = mutationType({
                     console.log(conectaContaCargoUser)
 
                     /// CADASTRA SOLUÇÕES NUTRITIVAS INICIAIS PARA O NOVO USUÁRIO
-                    for (const solucaoId of [12, 13, 14, 15, 16]) {
+                    // IDs das soluções padrão do sistema (serão migradas para seed/fixture)
+                    const solucoesIniciais = [12, 13, 14, 15, 16];
+
+                    for (const solucaoId of solucoesIniciais) {
                         const snutritiva = await prisma.SNutritiva.findMany({
                             where: {
                               id: solucaoId,
@@ -1266,8 +1305,11 @@ const Mutation = mutationType({
                                 solucoes_fertilizantes_concentradas: true
                             }
                         });
-    
-                        if(snutritiva.length) {
+
+                        if (!snutritiva.length) {
+                            console.log(`SNutritiva id=${solucaoId} não encontrada, pulando...`);
+                            continue;
+                        }
                             var solucaoFertilizantes = [];
                             for (const object of snutritiva[0].solucoes_fertilizantes_concentradas) {
                                 if(object.fk_concentradas_id != null) {
