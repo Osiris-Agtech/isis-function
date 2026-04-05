@@ -726,25 +726,20 @@ const Mutation = mutationType({
                         }
                     });
 
-                    let info = await transporter.sendMail({
-                        from: `"Osiris Agtech 🌱" <${gmailUser}>`,
-                        to: args.email,
-                        subject: args.subject,
-                        html: args.html,
-                        // + '<form action="http://www.osirisagtech.com.br/#about" method="get" target="_blank">'
-                        // + '<button type="submit">Click me</button>'
-                        // + '</form>', // html body
-                    }, function (error, info) {
-                        if (error) {
-                            console.log(error);
-                            return "Falha ao enviar e-mail"; // Error("Falha: E-mail não enviado")
-                        } else {
-                            console.log('Message sent successfully!');
-                            console.log('Server responded with "%s"', info.response);
-                        }
-                        console.log('Closing Transport');
-                        transporter.close();
-                    });
+                    try {
+                        let info = await transporter.sendMail({
+                            from: `"Osiris Agtech 🌱" <${gmailUser}>`,
+                            to: args.email,
+                            subject: args.subject,
+                            html: args.html,
+                        });
+                        console.log("Message sent: %s", info);
+                    } catch (error) {
+                        console.log(error);
+                        throw new Error("Falha ao enviar e-mail");
+                    }
+                    console.log('Closing Transport');
+                    transporter.close();
 
                     console.log("Message sent: %s", info);
                     return "Sucesso";
@@ -863,28 +858,23 @@ const Mutation = mutationType({
                             to: args.email,
                             subject: 'Adicionado colaborador ✔',
                             html: 'Você foi adicionado a conta ' + contaInvited.nome + ' com o cargo ' + cargoInvited.cargo + '. \n\nAcesse ao aplicativo Osiris para mais informações.',
-                            // + '<form action="http://www.osirisagtech.com.br/#about" method="get" target="_blank">'
-                            // + '<button type="submit">Click me</button>'
-                            // + '</form>', // html body
-                        }, function (error, info) {
-                            if (error) {
-                                console.log(error);
-                                return "Falha ao enviar e-mail"; // Error("Falha: E-mail não enviado")
-                            } else {
-                                console.log('Message sent successfully!');
-                                console.log('Server responded with "%s"', info.response);
-                            }
-                            console.log('Closing Transport');
-                            transporter.close();
                         });
+                        console.log('Message sent successfully!');
+                        console.log('Server responded with "%s"', info.response);
+                        console.log('Closing Transport');
+                        transporter.close();
 
                         const infoAcesso = { ...buscarUsuario[0], conta: conectaContaCargoUser.conta, cargo: conectaContaCargoUser.cargo };
                         console.log(infoAcesso);
                         return infoAcesso;
-                    }
-
-                    // Create Pessoa
-                    const pessoa = await prisma.pessoa.create({
+                    } else {
+                        // Create Pessoa
+                        let pessoa;
+                        let conta;
+                        let usuario;
+                        let conectaContaCargoUser;
+                        
+                        pessoa = await prisma.pessoa.create({
                         data: {
                             nome: args.nome,
                             sobrenome: args.sobrenome,
@@ -895,7 +885,7 @@ const Mutation = mutationType({
                     });
 
                     // # Criar a Conta
-                    const conta = await prisma.conta.create({
+                    conta = await prisma.conta.create({
                         data: {
                             nome: args.nome,
                             nivel: "1",
@@ -918,7 +908,7 @@ const Mutation = mutationType({
 
                     // # Criar o Usuário
                     const hashedPassword = await bcrypt.hash(password, 10);
-                    const usuario = await prisma.usuario.create({
+                    usuario = await prisma.usuario.create({
                         data: {
                             nome: args.nome,
                             email: args.email,
@@ -972,7 +962,7 @@ const Mutation = mutationType({
                     }
 
                     // # Conecta a Conta criada com o Usuário criado e atribui o Cargo de Owner (Dono)
-                    const conectaContaCargoUser = await prisma.ConectaConta.create({
+                    conectaContaCargoUser = await prisma.ConectaConta.create({
                         data: {
                             conta: {
                                 connect: {
@@ -1015,64 +1005,63 @@ const Mutation = mutationType({
                             console.log(`SNutritiva id=${solucaoId} não encontrada, pulando...`);
                             continue;
                         }
-                            var solucaoFertilizantes = [];
-                            for (const object of snutritiva[0].solucoes_fertilizantes_concentradas) {
-                                if(object.fk_concentradas_id != null) {
-                                    solucaoFertilizantes.push({
-                                        quantidade: Number(object.quantidade),
-                                        fertilizante: {
-                                            connect: {
-                                                id: Number(object.fk_fertilizantes_id)
-                                            }
-                                        },
-                                        concentrada: {
-                                            connect: {
-                                                id: object.fk_concentradas_id
-                                            }
-                                        }
-                                    });
-                                } else {
-                                    solucaoFertilizantes.push({
-                                        quantidade: Number(object.quantidade),
-                                        fertilizante: {
-                                            connect: {
-                                                id: Number(object.fk_fertilizantes_id)
-                                            }
-                                        },
-                                    });
-                                }
-                            }
-                            console.log(solucaoFertilizantes);
-                            var data = {
-                                c_eletrica: Number(snutritiva[0].c_eletrica),
-                                nome: String(snutritiva[0].nome),
-                                solucoes_contas: {
-                                    create: [
-                                    {
-                                        conta_original: 1,
-                                        conta: {
+                        var solucaoFertilizantes = [];
+                        for (const object of snutritiva[0].solucoes_fertilizantes_concentradas) {
+                            if(object.fk_concentradas_id != null) {
+                                solucaoFertilizantes.push({
+                                    quantidade: Number(object.quantidade),
+                                    fertilizante: {
                                         connect: {
-                                            id: conta.id
+                                            id: Number(object.fk_fertilizantes_id)
                                         }
+                                    },
+                                    concentrada: {
+                                        connect: {
+                                            id: object.fk_concentradas_id
                                         }
                                     }
-                                    ]
-                                },
-                                solucoes_fertilizantes_concentradas: {
-                                    create: [
-                                    ...solucaoFertilizantes
-                                    ]
-                                }
-                            };
-        
-                            const novaSNutritiva = await prisma.SNutritiva.create({
-                                data: data,
-                                include: {
-                                    solucoes_fertilizantes_concentradas: true
-                                }
-                            });
-                            console.log(novaSNutritiva);
+                                });
+                            } else {
+                                solucaoFertilizantes.push({
+                                    quantidade: Number(object.quantidade),
+                                    fertilizante: {
+                                        connect: {
+                                            id: Number(object.fk_fertilizantes_id)
+                                        }
+                                    },
+                                });
+                            }
                         }
+                        console.log(solucaoFertilizantes);
+                        var data = {
+                            c_eletrica: Number(snutritiva[0].c_eletrica),
+                            nome: String(snutritiva[0].nome),
+                            solucoes_contas: {
+                                create: [
+                                {
+                                    conta_original: 1,
+                                    conta: {
+                                    connect: {
+                                        id: conta.id
+                                    }
+                                    }
+                                }
+                                ]
+                            },
+                            solucoes_fertilizantes_concentradas: {
+                                create: [
+                                ...solucaoFertilizantes
+                                ]
+                            }
+                        };
+
+                        const novaSNutritiva = await prisma.SNutritiva.create({
+                            data: data,
+                            include: {
+                                solucoes_fertilizantes_concentradas: true
+                            }
+                        });
+                        console.log(novaSNutritiva);
                     }
 
                     const contaInvited = await prisma.conta.findUnique({
@@ -1107,24 +1096,16 @@ const Mutation = mutationType({
                         to: args.email,
                         subject: 'Adicionado colaborador ✔',
                         html: 'Você foi adicionado a conta ' + contaInvited.nome + ' com o cargo ' + cargoInvited.cargo + '. \n\nAcesse ao aplicativo Osiris com seu e-mail e a senha "' + password + '" para ter acesso.',
-                        // + '<form action="http://www.osirisagtech.com.br/#about" method="get" target="_blank">'
-                        // + '<button type="submit">Click me</button>'
-                        // + '</form>', // html body
-                    }, function (error, info) {
-                        if (error) {
-                            console.log(error);
-                            return "Falha ao enviar e-mail"; // Error("Falha: E-mail não enviado")
-                        } else {
-                            console.log('Message sent successfully!');
-                            console.log('Server responded with "%s"', info.response);
-                        }
-                        console.log('Closing Transport');
-                        transporter.close();
                     });
+                    console.log('Message sent successfully!');
+                    console.log('Server responded with "%s"', info.response);
+                    console.log('Closing Transport');
+                    transporter.close();
 
                     const infoAcesso = { ...usuario, conta: conectaContaCargoUser.conta, cargo: conectaContaCargoUser.cargo };
                     console.log(infoAcesso);
                     return infoAcesso;
+                    }
                 }
             }
         )
@@ -1293,7 +1274,7 @@ const Mutation = mutationType({
                     console.log(conectaContaCargoUser)
 
                     /// CADASTRA SOLUÇÕES NUTRITIVAS INICIAIS PARA O NOVO USUÁRIO
-                    // IDs das soluções padrão do sistema (serão migradas para seed/fixture)
+                    // IDs das soluções padrão do sistema (serão migridas para seed/fixture)
                     const solucoesIniciais = [12, 13, 14, 15, 16];
 
                     for (const solucaoId of solucoesIniciais) {
@@ -1310,64 +1291,63 @@ const Mutation = mutationType({
                             console.log(`SNutritiva id=${solucaoId} não encontrada, pulando...`);
                             continue;
                         }
-                            var solucaoFertilizantes = [];
-                            for (const object of snutritiva[0].solucoes_fertilizantes_concentradas) {
-                                if(object.fk_concentradas_id != null) {
-                                    solucaoFertilizantes.push({
-                                        quantidade: Number(object.quantidade),
-                                        fertilizante: {
-                                            connect: {
-                                                id: Number(object.fk_fertilizantes_id)
-                                            }
-                                        },
-                                        concentrada: {
-                                            connect: {
-                                                id: object.fk_concentradas_id
-                                            }
-                                        }
-                                    });
-                                } else {
-                                    solucaoFertilizantes.push({
-                                        quantidade: Number(object.quantidade),
-                                        fertilizante: {
-                                            connect: {
-                                                id: Number(object.fk_fertilizantes_id)
-                                            }
-                                        },
-                                    });
-                                }
-                            }
-                            console.log(solucaoFertilizantes);
-                            var data = {
-                                c_eletrica: Number(snutritiva[0].c_eletrica),
-                                nome: String(snutritiva[0].nome),
-                                solucoes_contas: {
-                                    create: [
-                                    {
-                                        conta_original: 1,
-                                        conta: {
+                        var solucaoFertilizantes = [];
+                        for (const object of snutritiva[0].solucoes_fertilizantes_concentradas) {
+                            if(object.fk_concentradas_id != null) {
+                                solucaoFertilizantes.push({
+                                    quantidade: Number(object.quantidade),
+                                    fertilizante: {
                                         connect: {
-                                            id: conta.id
+                                            id: Number(object.fk_fertilizantes_id)
                                         }
+                                    },
+                                    concentrada: {
+                                        connect: {
+                                            id: object.fk_concentradas_id
                                         }
                                     }
-                                    ]
-                                },
-                                solucoes_fertilizantes_concentradas: {
-                                    create: [
-                                    ...solucaoFertilizantes
-                                    ]
-                                }
-                            };
-        
-                            const novaSNutritiva = await prisma.SNutritiva.create({
-                                data: data,
-                                include: {
-                                    solucoes_fertilizantes_concentradas: true
-                                }
-                            });
-                            console.log(novaSNutritiva);
+                                });
+                            } else {
+                                solucaoFertilizantes.push({
+                                    quantidade: Number(object.quantidade),
+                                    fertilizante: {
+                                        connect: {
+                                            id: Number(object.fk_fertilizantes_id)
+                                        }
+                                    },
+                                });
+                            }
                         }
+                        console.log(solucaoFertilizantes);
+                        var data = {
+                            c_eletrica: Number(snutritiva[0].c_eletrica),
+                            nome: String(snutritiva[0].nome),
+                            solucoes_contas: {
+                                create: [
+                                {
+                                    conta_original: 1,
+                                    conta: {
+                                    connect: {
+                                        id: conta.id
+                                    }
+                                    }
+                                }
+                                ]
+                            },
+                            solucoes_fertilizantes_concentradas: {
+                                create: [
+                                ...solucaoFertilizantes
+                                ]
+                            }
+                        };
+
+                        const novaSNutritiva = await prisma.SNutritiva.create({
+                            data: data,
+                            include: {
+                                solucoes_fertilizantes_concentradas: true
+                            }
+                        });
+                        console.log(novaSNutritiva);
                     }
 
                     const infoAcesso = { ...usuario, conta: conectaContaCargoUser.conta, cargo: conectaContaCargoUser.cargo };
