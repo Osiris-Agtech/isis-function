@@ -1,4 +1,4 @@
-const { onRequest } = require('firebase-functions/v2/https');
+const functions = require('firebase-functions');
 const { createYoga } = require('graphql-yoga');
 const { makeSchema } = require('@nexus/schema');
 const { nexusPrisma } = require('nexus-plugin-prisma');
@@ -28,8 +28,8 @@ const yoga = createYoga({
 });
 
 // Firebase Function: GraphQL API (HTTP, público)
-exports.graphqlHandler = onRequest(yoga);
+exports.graphqlHandler = functions.https.onRequest(yoga);
 
 // Firebase Function: Alerta de Agenda (HTTP, chamado por Cloud Scheduler)
 const { handleAlertaAgenda } = require('./cron/alertaAgenda');
-exports.alertaAgendaHandler = onRequest(handleAlertaAgenda);
+exports.alertaAgendaHandler = functions.https.onRequest(handleAlertaAgenda);
