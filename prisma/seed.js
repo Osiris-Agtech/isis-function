@@ -44,6 +44,69 @@ async function main() {
     }
   }
 
+  // 3. Criar permissões (idempotente)
+  const permissoes = [
+    'caderno-campo-view',
+    'caderno-campo-edit',
+    'gerencia-equipe-view',
+    'gerencia-equipe-edit',
+    'reservatorio-view',
+    'reservatorio-edit',
+    'solucao-nutritiva-view',
+    'solucao-nutritiva-edit',
+    'area-cultivo-N1-view',
+    'area-cultivo-N1-edit',
+    'area-cultivo-N2-view',
+    'area-cultivo-N2-edit',
+    'area-cultivo-N3-view',
+    'area-cultivo-N3-edit',
+  ];
+
+  console.log('\nCriando permissões...');
+  const permissoesCriadas = [];
+
+  for (const nome of permissoes) {
+    const existing = await prisma.permissao.findFirst({
+      where: { nome },
+    });
+
+    if (!existing) {
+      const permissao = await prisma.permissao.create({
+        data: { nome },
+      });
+      permissoesCriadas.push(permissao);
+      console.log(`✓ Permissão criada: ${nome}`);
+    } else {
+      permissoesCriadas.push(existing);
+      console.log(`- Permissão já existe: ${nome}`);
+    }
+  }
+
+  // 4. Associar todas as permissões ao cargo Owner (status: true)
+  console.log('\nAssociando permissões ao cargo Owner...');
+
+  for (const permissao of permissoesCriadas) {
+    const existing = await prisma.cargos_Permissoes.findFirst({
+      where: {
+        fk_cargos_id: cargoOwner.id,
+        fk_permissoes_id: permissao.id,
+      },
+    });
+
+    if (!existing) {
+      await prisma.cargos_Permissoes.create({
+        data: {
+          fk_cargos_id: cargoOwner.id,
+          fk_permissoes_id: permissao.id,
+          status: true,
+        },
+      });
+      console.log(`✓ Permissão ${permissao.nome} associada ao Owner`);
+    } else {
+      console.log(`- Permissão ${permissao.nome} já associada ao Owner`);
+    }
+  }
+
   console.log('\nSeed executado com sucesso! Dados base criados.');
 }
 
