@@ -55,19 +55,46 @@ const {
   RelatorioDesempenhoResult,
 } = require('./relatorioDesempenho')
 
+const {
+  RelatorioProdutividadeFiltros,
+  ProdutividadeAreaDetalhe,
+  ProdutividadeSetorRanking,
+  RelatorioProdutividadeResult,
+} = require('./relatorioProdutividade')
+
+const {
+  RelatorioAgendaFiltros,
+  AgendaTarefaItem,
+  AgendaLoteTaxaConclusao,
+  RelatorioAgendaResult,
+} = require('./relatorioAgenda')
+
 module.exports = {
   Agenda,
   Protocolo,
   Acao,
+  // Relatório Ciclo
   RelatorioCicloFiltros,
   CicloLoteDetalhe,
   CicloRankingCultura,
   RelatorioCicloResult,
+  // Relatório Desempenho
   RelatorioDesempenhoFiltros,
   DesempenhoAtividadeItem,
   DesempenhoAgendaItem,
   DesempenhoUsuarioRanking,
   RelatorioDesempenhoResult,
+  // Relatório Produtividade
+  RelatorioProdutividadeFiltros,
+  ProdutividadeAreaDetalhe,
+  ProdutividadeSetorRanking,
+  RelatorioProdutividadeResult,
+  // Relatório Agenda
+  RelatorioAgendaFiltros,
+  AgendaTarefaItem,
+  AgendaLoteTaxaConclusao,
+  RelatorioAgendaResult,
+  // Home Dashboard
   HomeResumo,
   HomeTarefas,
   HomeProducao,

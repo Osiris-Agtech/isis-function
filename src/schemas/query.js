@@ -1,6 +1,9 @@
 const { queryType } = require('@nexus/schema')
 const { list, nonNull, intArg, arg } = require('@nexus/schema')
 
+const MetricasLotesService = require('../services/metricasLotesService')
+const MetricasAgendaService = require('../services/metricasAgendaService')
+
 const Query = queryType({
   name: 'Query',
   definition(t) {
@@ -744,6 +747,204 @@ const Query = queryType({
           taxaConclusaoMedia,
           periodoInicio: dataInicio.toISOString().split('T')[0],
           periodoFim: dataFim.toISOString().split('T')[0],
+        }
+      },
+    })
+
+    // ============================================
+    // QUERY: relatorioProdutividadeSetor
+    // ============================================
+    t.field('relatorioProdutividadeSetor', {
+      type: 'RelatorioProdutividadeResult',
+      args: {
+        contaId: nonNull(intArg()),
+        filtros: arg({ type: 'RelatorioProdutividadeFiltros' }),
+      },
+      resolve: async (_, { contaId, filtros }, { prisma }) => {
+        const service = new MetricasLotesService(prisma)
+
+        // Período padrão: últimos 6 meses
+        const hoje = new Date()
+        const seisMesesAtras = new Date(hoje)
+        seisMesesAtras.setMonth(seisMesesAtras.getMonth() - 6)
+
+        const dataInicio = filtros?.dataInicio || seisMesesAtras.toISOString()
+        const dataFim = filtros?.dataFim || hoje.toISOString()
+
+        // Buscar lotes
+        const lotes = await service.buscarLotes(contaId, {
+          dataInicio,
+          dataFim,
+          culturaIds: filtros?.culturaIds,
+          setorIds: filtros?.setorIds,
+          areaIds: filtros?.areaIds,
+          apenasFinalizados: true,
+        })
+
+        // Calcular métricas por lote
+        const lotesCalculados = lotes.map(lote => ({
+          ...lote,
+          metricas: service.calcularTaxasProdutividade(lote),
+        }))
+
+        // Agrupar por setor
+        const setorMap = {}
+        lotesCalculados.forEach(lote => {
+          const setorId = lote.setor?.id
+          if (!setorId) return
+
+          if (!setorMap[setorId]) {
+            setorMap[setorId] = {
+              setorId,
+              setorNome: lote.setor.nome,
+              areaNome: lote.setor.area?.nome,
+              lotes: [],
+            }
+          }
+          setorMap[setorId].lotes.push(lote)
+        })
+
+        // Calcular agregados por setor
+        const setores = Object.values(setorMap).map(setor => {
+          const totais = setor.lotes.reduce((acc, l) => ({
+            bandejas: acc.bandejas + (l.metricas.bandejas || 0),
+            mudas: acc.mudas + (l.metricas.mudas || 0),
+            plantas: acc.plantas + (l.metricas.plantas || 0),
+            embalagens: acc.embalagens + (l.metricas.embalagens || 0),
+          }), { bandejas: 0, mudas: 0, plantas: 0, embalagens: 0 })
+
+          // Agrupar áreas dentro do setor
+          const areaMap = {}
+          setor.lotes.forEach(lote => {
+            const areaId = lote.setor?.area?.id
+            if (!areaId) return
+            if (!areaMap[areaId]) {
+              areaMap[areaId] = {
+                areaId,
+                areaNome: lote.setor.area.nome,
+                lotes: [],
+              }
+            }
+            areaMap[areaId].lotes.push(lote)
+          })
+
+          const areas = Object.values(areaMap).map(area => {
+            const t = area.lotes.reduce((acc, l) => ({
+              bandejas: acc.bandejas + (l.metricas.bandejas || 0),
+              mudas: acc.mudas + (l.metricas.mudas || 0),
+              plantas: acc.plantas + (l.metricas.plantas || 0),
+              embalagens: acc.embalagens + (l.metricas.embalagens || 0),
+            }), { bandejas: 0, mudas: 0, plantas: 0, embalagens: 0 })
+
+            return {
+              areaId: area.areaId,
+              areaNome: area.areaNome,
+              totalLotes: area.lotes.length,
+              totalBandejasSemeadas: t.bandejas,
+              totalMudasTransplantadas: t.mudas,
+              totalPlantasColhidas: t.plantas,
+              totalEmbalagensProduzidas: t.embalagens,
+              taxaGerminacao: t.bandejas > 0 ? parseFloat((t.mudas / t.bandejas).toFixed(2)) : null,
+              taxaTransplantio: t.mudas > 0 ? parseFloat(((t.plantas / t.mudas) * 100).toFixed(2)) : null,
+              taxaEmbalagem: t.plantas > 0 ? parseFloat(((t.embalagens / t.plantas) * 100).toFixed(2)) : null,
+              taxaGlobal: t.bandejas > 0 ? parseFloat((t.embalagens / t.bandejas).toFixed(2)) : null,
+            }
+          })
+
+          return {
+            setorId: setor.setorId,
+            setorNome: setor.setorNome,
+            areaNome: setor.areaNome,
+            totalLotes: setor.lotes.length,
+            totalBandejasSemeadas: totais.bandejas,
+            totalMudasTransplantadas: totais.mudas,
+            totalPlantasColhidas: totais.plantas,
+            totalEmbalagensProduzidas: totais.embalagens,
+            taxaGerminacao: totais.bandejas > 0 ? parseFloat((totais.mudas / totais.bandejas).toFixed(2)) : null,
+            taxaTransplantio: totais.mudas > 0 ? parseFloat(((totais.plantas / totais.mudas) * 100).toFixed(2)) : null,
+            taxaEmbalagem: totais.plantas > 0 ? parseFloat(((totais.embalagens / totais.plantas) * 100).toFixed(2)) : null,
+            taxaGlobal: totais.bandejas > 0 ? parseFloat((totais.embalagens / totais.bandejas).toFixed(2)) : null,
+            areas,
+          }
+        })
+
+        // Ordenar por taxaGlobal descendente
+        setores.sort((a, b) => (b.taxaGlobal ?? -Infinity) - (a.taxaGlobal ?? -Infinity))
+
+        // Taxa global média
+        const taxasGlobais = setores.map(s => s.taxaGlobal).filter(v => v != null)
+        const taxaGlobalMedia = taxasGlobais.length
+          ? parseFloat((taxasGlobais.reduce((s, v) => s + v, 0) / taxasGlobais.length).toFixed(2))
+          : 0
+
+        return {
+          setores,
+          totalLotes: lotes.length,
+          taxaGlobalMedia,
+          periodoInicio: dataInicio.split('T')[0],
+          periodoFim: dataFim.split('T')[0],
+        }
+      },
+    })
+
+    // ============================================
+    // QUERY: relatorioAgendaTarefas
+    // ============================================
+    t.field('relatorioAgendaTarefas', {
+      type: 'RelatorioAgendaResult',
+      args: {
+        contaId: nonNull(intArg()),
+        filtros: arg({ type: 'RelatorioAgendaFiltros' }),
+      },
+      resolve: async (_, { contaId, filtros }, { prisma }) => {
+        const service = new MetricasAgendaService(prisma)
+
+        const diasAVencer = filtros?.diasAVencer ?? 7
+
+        // Buscar todas as agendas da conta
+        const agendas = await service.buscarAgendas(contaId, {
+          usuarioIds: filtros?.usuarioIds,
+          loteIds: filtros?.loteIds,
+          apenasComAlerta: filtros?.apenasComAlerta,
+        })
+
+        // Calcular tarefas vencidas
+        const tarefasVencidas = service.calcularTarefasVencidas(agendas).map(a => ({
+          id: a.id,
+          titulo: a.titulo,
+          descricao: a.descricao,
+          data: a.data?.toISOString(),
+          alerta: a.alerta ?? false,
+          usuarioId: a.usuario?.id,
+          usuarioNome: a.usuario?.nome,
+          loteId: a.lote?.id,
+          loteNome: a.lote?.nome,
+          setorNome: a.lote?.setor?.nome,
+        }))
+
+        // Calcular tarefas a vencer
+        const tarefasAVencer = service.calcularTarefasAVencer(agendas, diasAVencer).map(a => ({
+          id: a.id,
+          titulo: a.titulo,
+          descricao: a.descricao,
+          data: a.data?.toISOString(),
+          alerta: a.alerta ?? false,
+          usuarioId: a.usuario?.id,
+          usuarioNome: a.usuario?.nome,
+          loteId: a.lote?.id,
+          loteNome: a.lote?.nome,
+          setorNome: a.lote?.setor?.nome,
+        }))
+
+        // Calcular taxa de conclusão por lote ativo
+        const lotesComTaxaConclusao = await service.calcularTaxaConclusaoPorLote(contaId)
+
+        return {
+          diasAVencer,
+          geradoEm: new Date().toISOString(),
+          tarefasVencidas,
+          tarefasAVencer,
+          lotesComTaxaConclusao,
         }
       },
     })
