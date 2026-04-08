@@ -598,7 +598,7 @@ const Query = queryType({
             alertasCritico.push({
               tipo: 'tarefa_vencida',
               mensagem: `"${a.titulo}" está atrasada`,
-              loteId: a.fk_lotes_id,
+              loteId: a.fk_lote_id,
               loteNome: a.lote?.nome || 'Sem lote',
               gravidade: 'alta',
               data: a.data ? new Date(a.data).toISOString().split('T')[0] : null,
@@ -1136,54 +1136,59 @@ const Query = queryType({
         filtros: arg({ type: 'RelatorioAgendaFiltros' }),
       },
       resolve: async (_, { contaId, filtros }, { prisma }) => {
-        const service = new MetricasAgendaService(prisma)
+        try {
+          const service = new MetricasAgendaService(prisma)
 
-        const diasAVencer = filtros?.diasAVencer ?? 7
+          const diasAVencer = filtros?.diasAVencer ?? 7
 
-        // Buscar todas as agendas da conta
-        const agendas = await service.buscarAgendas(contaId, {
-          usuarioIds: filtros?.usuarioIds,
-          loteIds: filtros?.loteIds,
-          apenasComAlerta: filtros?.apenasComAlerta,
-        })
+          // Buscar todas as agendas da conta
+          const agendas = await service.buscarAgendas(contaId, {
+            usuarioIds: filtros?.usuarioIds,
+            loteIds: filtros?.loteIds,
+            apenasComAlerta: filtros?.apenasComAlerta,
+          })
 
-        // Calcular tarefas vencidas
-        const tarefasVencidas = service.calcularTarefasVencidas(agendas).map(a => ({
-          id: a.id,
-          titulo: a.titulo,
-          descricao: a.descricao,
-          data: a.data?.toISOString(),
-          alerta: a.alerta ?? false,
-          usuarioId: a.usuario?.id,
-          usuarioNome: a.usuario?.nome,
-          loteId: a.lote?.id,
-          loteNome: a.lote?.nome,
-          setorNome: a.lote?.setor?.nome,
-        }))
+          // Calcular tarefas vencidas
+          const tarefasVencidas = service.calcularTarefasVencidas(agendas).map(a => ({
+            id: a.id,
+            titulo: a.titulo,
+            descricao: a.descricao,
+            data: a.data?.toISOString(),
+            alerta: a.alerta ?? false,
+            usuarioId: a.usuario?.id,
+            usuarioNome: a.usuario?.nome,
+            loteId: a.lote?.id,
+            loteNome: a.lote?.nome,
+            setorNome: a.lote?.setor?.nome,
+          }))
 
-        // Calcular tarefas a vencer
-        const tarefasAVencer = service.calcularTarefasAVencer(agendas, diasAVencer).map(a => ({
-          id: a.id,
-          titulo: a.titulo,
-          descricao: a.descricao,
-          data: a.data?.toISOString(),
-          alerta: a.alerta ?? false,
-          usuarioId: a.usuario?.id,
-          usuarioNome: a.usuario?.nome,
-          loteId: a.lote?.id,
-          loteNome: a.lote?.nome,
-          setorNome: a.lote?.setor?.nome,
-        }))
+          // Calcular tarefas a vencer
+          const tarefasAVencer = service.calcularTarefasAVencer(agendas, diasAVencer).map(a => ({
+            id: a.id,
+            titulo: a.titulo,
+            descricao: a.descricao,
+            data: a.data?.toISOString(),
+            alerta: a.alerta ?? false,
+            usuarioId: a.usuario?.id,
+            usuarioNome: a.usuario?.nome,
+            loteId: a.lote?.id,
+            loteNome: a.lote?.nome,
+            setorNome: a.lote?.setor?.nome,
+          }))
 
-        // Calcular taxa de conclusão por lote ativo
-        const lotesComTaxaConclusao = await service.calcularTaxaConclusaoPorLote(contaId)
+          // Calcular taxa de conclusão por lote ativo
+          const lotesComTaxaConclusao = await service.calcularTaxaConclusaoPorLote(contaId)
 
-        return {
-          diasAVencer,
-          geradoEm: new Date().toISOString(),
-          tarefasVencidas,
-          tarefasAVencer,
-          lotesComTaxaConclusao,
+          return {
+            diasAVencer,
+            geradoEm: new Date().toISOString(),
+            tarefasVencidas,
+            tarefasAVencer,
+            lotesComTaxaConclusao,
+          }
+        } catch (error) {
+          console.error('❌ Erro no resolver relatorioAgendaTarefas:', error)
+          throw new Error(`Falha ao gerar relatório de agenda: ${error.message}`)
         }
       },
     })

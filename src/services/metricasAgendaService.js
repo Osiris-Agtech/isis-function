@@ -30,7 +30,7 @@ class MetricasAgendaService {
     }
 
     if (loteIds?.length) {
-      where.fk_lotes_id = { in: loteIds }
+      where.fk_lote_id = { in: loteIds }
     }
 
     if (apenasComAlerta) {
@@ -111,7 +111,7 @@ class MetricasAgendaService {
     for (const lote of lotesAtivos) {
       const total = await this.prisma.agenda.count({
         where: {
-          fk_lotes_id: lote.id,
+          fk_lote_id: lote.id,
           deleted_at: null,
         },
       })
@@ -123,7 +123,7 @@ class MetricasAgendaService {
 
       const concluidas = await this.prisma.agenda.count({
         where: {
-          fk_lotes_id: lote.id,
+          fk_lote_id: lote.id,
           finalizado: true,
           deleted_at: null,
         },
@@ -132,7 +132,7 @@ class MetricasAgendaService {
       const hoje = new Date()
       const vencidas = await this.prisma.agenda.count({
         where: {
-          fk_lotes_id: lote.id,
+          fk_lote_id: lote.id,
           finalizado: false,
           deleted_at: null,
           data: { lt: hoje },
