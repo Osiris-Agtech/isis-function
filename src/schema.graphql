@@ -324,8 +324,31 @@ input AgendaListRelationFilter {
   some: AgendaWhereInput
 }
 
+type AgendaLoteTaxaConclusao {
+  loteId: Int
+  loteNome: String
+  setorNome: String
+  tarefasConcluidas: Int
+  tarefasVencidas: Int
+  taxaConclusao: Float
+  totalTarefas: Int
+}
+
 input AgendaOrderByRelationAggregateInput {
   _count: SortOrder
+}
+
+type AgendaTarefaItem {
+  alerta: Boolean
+  data: String
+  descricao: String
+  id: Int
+  loteId: Int
+  loteNome: String
+  setorNome: String
+  titulo: String
+  usuarioId: Int
+  usuarioNome: String
 }
 
 input AgendaWhereInput {
@@ -1798,37 +1821,121 @@ input Fertilizantes_NutrientesWhereUniqueInput {
   id: Int
 }
 
+type HomeAlertaCritico {
+  data: String
+  gravidade: String
+  loteId: Int
+  loteNome: String
+  mensagem: String
+  tipo: String
+}
+
+type HomeComparativoPeriodo {
+  plantasColhidas: Int
+  variacaoPercentual: Float
+}
+
 type HomeCultura {
+  cor: String
   nome: String
   quantidade: Int
 }
 
+type HomeCulturaDestaque {
+  nome: String
+  percentualDoTotal: Float
+  quantidade: Int
+}
+
 type HomeDashboard {
+  alertasCritico: [HomeAlertaCritico]
   culturas: [HomeCultura]
+  equipe: HomeEquipeResumo
   producao: HomeProducao
   resumo: HomeResumo
   tarefas: HomeTarefas
 }
 
+type HomeEquipeResumo {
+  atividadesNoPrazo: Int
+  atividadesVencidas: Int
+  membrosAtivos: Int
+  taxaConclusaoMedia: Float
+}
+
+type HomeEspecieDetalhe {
+  nome: String
+  percentual: Float
+  status: String
+}
+
+type HomeLoteStatus {
+  cor: String
+  quantidade: Int
+  status: String
+}
+
 type HomeProducao {
+  comparativoPeriodo: HomeComparativoPeriodo
+  culturaMaisProducao: HomeCulturaDestaque
   lotesComColheitaProxima: Int
   periodoFim: String
   periodoInicio: String
+  producaoMensal: [HomeProducaoMensal]
+  taxasMedia: HomeTaxasMedia
   totalEmbalagensProduzidas: Int
   totalPlantasColhidas: Int
 }
 
+type HomeProducaoMensal {
+  mes: String
+  quantidade: Float
+}
+
 type HomeResumo {
+  especiesEmAndamento: [HomeEspecieDetalhe]
   lotesAtivos: Int
+  lotesComColheitaProxima: Int
   lotesFinalizados: Int
+  lotesPorStatus: [HomeLoteStatus]
   taxaConclusao: Float
   totalLotes: Int
+}
+
+type HomeTarefaDetalhe {
+  data: String
+  id: Int
+  loteNome: String
+  titulo: String
+  vencida: Boolean
 }
 
 type HomeTarefas {
   atrasadas: Int
   pendentesHoje: Int
   pendentesSemana: Int
+  porPrioridade: HomeTarefasPorPrioridade
+  porVencimento: HomeTarefasPorVencimento
+  ultimasTarefas: [HomeTarefaDetalhe]
+}
+
+type HomeTarefasPorPrioridade {
+  alta: Int
+  baixa: Int
+  media: Int
+}
+
+type HomeTarefasPorVencimento {
+  estaSemana: Int
+  hoje: Int
+  proximaSemana: Int
+}
+
+type HomeTaxasMedia {
+  taxaEmbalagem: Float
+  taxaGerminacao: Float
+  taxaGlobal: Float
+  taxaTransplantio: Float
 }
 
 input IntFilter {
@@ -3052,6 +3159,36 @@ input PessoaWhereUniqueInput {
   id: Int
 }
 
+type ProdutividadeAreaDetalhe {
+  areaId: Int
+  areaNome: String
+  taxaEmbalagem: Float
+  taxaGerminacao: Float
+  taxaGlobal: Float
+  taxaTransplantio: Float
+  totalBandejasSemeadas: Int
+  totalEmbalagensProduzidas: Int
+  totalLotes: Int
+  totalMudasTransplantadas: Int
+  totalPlantasColhidas: Int
+}
+
+type ProdutividadeSetorRanking {
+  areaNome: String
+  areas: [ProdutividadeAreaDetalhe]
+  setorId: Int
+  setorNome: String
+  taxaEmbalagem: Float
+  taxaGerminacao: Float
+  taxaGlobal: Float
+  taxaTransplantio: Float
+  totalBandejasSemeadas: Int
+  totalEmbalagensProduzidas: Int
+  totalLotes: Int
+  totalMudasTransplantadas: Int
+  totalPlantasColhidas: Int
+}
+
 type Protocolo {
   acoes(after: AcaoWhereUniqueInput, before: AcaoWhereUniqueInput, first: Int, last: Int): [Acao!]!
   conta: Conta
@@ -3312,8 +3449,10 @@ type Query {
   pessoas(after: PessoaWhereUniqueInput, before: PessoaWhereUniqueInput, first: Int, last: Int, orderBy: [PessoaOrderByWithRelationInput!], where: PessoaWhereInput): [Pessoa!]!
   protocolo(where: ProtocoloWhereUniqueInput!): Protocolo
   protocolos(after: ProtocoloWhereUniqueInput, before: ProtocoloWhereUniqueInput, first: Int, last: Int, orderBy: [ProtocoloOrderByWithRelationInput!], where: ProtocoloWhereInput): [Protocolo!]!
+  relatorioAgendaTarefas(contaId: Int!, filtros: RelatorioAgendaFiltros): RelatorioAgendaResult
   relatorioCircoCultura(contaId: Int!, filtros: RelatorioCicloFiltros): RelatorioCicloResult
   relatorioDesempenhoEquipe(contaId: Int!, filtros: RelatorioDesempenhoFiltros): RelatorioDesempenhoResult
+  relatorioProdutividadeSetor(contaId: Int!, filtros: RelatorioProdutividadeFiltros): RelatorioProdutividadeResult
   reservatorio(where: ReservatorioWhereUniqueInput!): Reservatorio
   reservatorios(after: ReservatorioWhereUniqueInput, before: ReservatorioWhereUniqueInput, first: Int, last: Int, orderBy: [ReservatorioOrderByWithRelationInput!], where: ReservatorioWhereInput): [Reservatorio!]!
   sNutritiva(where: SNutritivaWhereUniqueInput!): SNutritiva
@@ -3327,6 +3466,21 @@ type Query {
 enum QueryMode {
   default
   insensitive
+}
+
+input RelatorioAgendaFiltros {
+  apenasComAlerta: Boolean
+  diasAVencer: Int
+  loteIds: [Int]
+  usuarioIds: [Int]
+}
+
+type RelatorioAgendaResult {
+  diasAVencer: Int
+  geradoEm: String
+  lotesComTaxaConclusao: [AgendaLoteTaxaConclusao]
+  tarefasAVencer: [AgendaTarefaItem]
+  tarefasVencidas: [AgendaTarefaItem]
 }
 
 input RelatorioCicloFiltros {
@@ -3357,6 +3511,22 @@ type RelatorioDesempenhoResult {
   taxaConclusaoMedia: Float
   totalUsuarios: Int
   usuarios: [DesempenhoUsuarioRanking]
+}
+
+input RelatorioProdutividadeFiltros {
+  areaIds: [Int]
+  culturaIds: [Int]
+  dataFim: String
+  dataInicio: String
+  setorIds: [Int]
+}
+
+type RelatorioProdutividadeResult {
+  periodoFim: String
+  periodoInicio: String
+  setores: [ProdutividadeSetorRanking]
+  taxaGlobalMedia: Float
+  totalLotes: Int
 }
 
 type Reservatorio {

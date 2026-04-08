@@ -32,7 +32,18 @@ const {
   HomeTarefas,
   HomeProducao,
   HomeCultura,
-  HomeDashboard
+  HomeDashboard,
+  HomeLoteStatus,
+  HomeEspecieDetalhe,
+  HomeTarefasPorVencimento,
+  HomeTarefasPorPrioridade,
+  HomeTarefaDetalhe,
+  HomeProducaoMensal,
+  HomeTaxasMedia,
+  HomeComparativoPeriodo,
+  HomeCulturaDestaque,
+  HomeEquipeResumo,
+  HomeAlertaCritico
 } = require('./homeDashboard')
 
 // New Tables
@@ -100,6 +111,17 @@ module.exports = {
   HomeProducao,
   HomeCultura,
   HomeDashboard,
+  HomeLoteStatus,
+  HomeEspecieDetalhe,
+  HomeTarefasPorVencimento,
+  HomeTarefasPorPrioridade,
+  HomeTarefaDetalhe,
+  HomeProducaoMensal,
+  HomeTaxasMedia,
+  HomeComparativoPeriodo,
+  HomeCulturaDestaque,
+  HomeEquipeResumo,
+  HomeAlertaCritico,
   DateTime,
   Area,
   Conta,

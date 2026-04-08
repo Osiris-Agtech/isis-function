@@ -2516,6 +2516,12 @@ export interface NexusGenInputs {
   ProtocoloWhereUniqueInput: { // input type
     id?: number | null; // Int
   }
+  RelatorioAgendaFiltros: { // input type
+    apenasComAlerta?: boolean | null; // Boolean
+    diasAVencer?: number | null; // Int
+    loteIds?: Array<number | null> | null; // [Int]
+    usuarioIds?: Array<number | null> | null; // [Int]
+  }
   RelatorioCicloFiltros: { // input type
     areaIds?: Array<number | null> | null; // [Int]
     culturaIds?: Array<number | null> | null; // [Int]
@@ -2527,6 +2533,13 @@ export interface NexusGenInputs {
     dataFim?: string | null; // String
     dataInicio?: string | null; // String
     usuarioIds?: Array<number | null> | null; // [Int]
+  }
+  RelatorioProdutividadeFiltros: { // input type
+    areaIds?: Array<number | null> | null; // [Int]
+    culturaIds?: Array<number | null> | null; // [Int]
+    dataFim?: string | null; // String
+    dataInicio?: string | null; // String
+    setorIds?: Array<number | null> | null; // [Int]
   }
   ReservatorioCreateInput: { // input type
     conta?: NexusGenInputs['ContaCreateNestedOneWithoutReservatoriosInput'] | null; // ContaCreateNestedOneWithoutReservatoriosInput
@@ -3251,6 +3264,27 @@ export interface NexusGenObjects {
     titulo?: string | null; // String
     updated_at?: NexusGenScalars['DateTime'] | null; // DateTime
   }
+  AgendaLoteTaxaConclusao: { // root type
+    loteId?: number | null; // Int
+    loteNome?: string | null; // String
+    setorNome?: string | null; // String
+    tarefasConcluidas?: number | null; // Int
+    tarefasVencidas?: number | null; // Int
+    taxaConclusao?: number | null; // Float
+    totalTarefas?: number | null; // Int
+  }
+  AgendaTarefaItem: { // root type
+    alerta?: boolean | null; // Boolean
+    data?: string | null; // String
+    descricao?: string | null; // String
+    id?: number | null; // Int
+    loteId?: number | null; // Int
+    loteNome?: string | null; // String
+    setorNome?: string | null; // String
+    titulo?: string | null; // String
+    usuarioId?: number | null; // Int
+    usuarioNome?: string | null; // String
+  }
   Area: { // root type
     created_at?: NexusGenScalars['DateTime'] | null; // DateTime
     deleted_at?: NexusGenScalars['DateTime'] | null; // DateTime
@@ -3372,33 +3406,106 @@ export interface NexusGenObjects {
     id: number; // Int!
     teor_nutriente?: NexusGenScalars['Decimal'] | null; // Decimal
   }
+  HomeAlertaCritico: { // root type
+    data?: string | null; // String
+    gravidade?: string | null; // String
+    loteId?: number | null; // Int
+    loteNome?: string | null; // String
+    mensagem?: string | null; // String
+    tipo?: string | null; // String
+  }
+  HomeComparativoPeriodo: { // root type
+    plantasColhidas?: number | null; // Int
+    variacaoPercentual?: number | null; // Float
+  }
   HomeCultura: { // root type
+    cor?: string | null; // String
     nome?: string | null; // String
     quantidade?: number | null; // Int
   }
+  HomeCulturaDestaque: { // root type
+    nome?: string | null; // String
+    percentualDoTotal?: number | null; // Float
+    quantidade?: number | null; // Int
+  }
   HomeDashboard: { // root type
+    alertasCritico?: Array<NexusGenRootTypes['HomeAlertaCritico'] | null> | null; // [HomeAlertaCritico]
     culturas?: Array<NexusGenRootTypes['HomeCultura'] | null> | null; // [HomeCultura]
+    equipe?: NexusGenRootTypes['HomeEquipeResumo'] | null; // HomeEquipeResumo
     producao?: NexusGenRootTypes['HomeProducao'] | null; // HomeProducao
     resumo?: NexusGenRootTypes['HomeResumo'] | null; // HomeResumo
     tarefas?: NexusGenRootTypes['HomeTarefas'] | null; // HomeTarefas
   }
+  HomeEquipeResumo: { // root type
+    atividadesNoPrazo?: number | null; // Int
+    atividadesVencidas?: number | null; // Int
+    membrosAtivos?: number | null; // Int
+    taxaConclusaoMedia?: number | null; // Float
+  }
+  HomeEspecieDetalhe: { // root type
+    nome?: string | null; // String
+    percentual?: number | null; // Float
+    status?: string | null; // String
+  }
+  HomeLoteStatus: { // root type
+    cor?: string | null; // String
+    quantidade?: number | null; // Int
+    status?: string | null; // String
+  }
   HomeProducao: { // root type
+    comparativoPeriodo?: NexusGenRootTypes['HomeComparativoPeriodo'] | null; // HomeComparativoPeriodo
+    culturaMaisProducao?: NexusGenRootTypes['HomeCulturaDestaque'] | null; // HomeCulturaDestaque
     lotesComColheitaProxima?: number | null; // Int
     periodoFim?: string | null; // String
     periodoInicio?: string | null; // String
+    producaoMensal?: Array<NexusGenRootTypes['HomeProducaoMensal'] | null> | null; // [HomeProducaoMensal]
+    taxasMedia?: NexusGenRootTypes['HomeTaxasMedia'] | null; // HomeTaxasMedia
     totalEmbalagensProduzidas?: number | null; // Int
     totalPlantasColhidas?: number | null; // Int
   }
+  HomeProducaoMensal: { // root type
+    mes?: string | null; // String
+    quantidade?: number | null; // Float
+  }
   HomeResumo: { // root type
+    especiesEmAndamento?: Array<NexusGenRootTypes['HomeEspecieDetalhe'] | null> | null; // [HomeEspecieDetalhe]
     lotesAtivos?: number | null; // Int
+    lotesComColheitaProxima?: number | null; // Int
     lotesFinalizados?: number | null; // Int
+    lotesPorStatus?: Array<NexusGenRootTypes['HomeLoteStatus'] | null> | null; // [HomeLoteStatus]
     taxaConclusao?: number | null; // Float
     totalLotes?: number | null; // Int
+  }
+  HomeTarefaDetalhe: { // root type
+    data?: string | null; // String
+    id?: number | null; // Int
+    loteNome?: string | null; // String
+    titulo?: string | null; // String
+    vencida?: boolean | null; // Boolean
   }
   HomeTarefas: { // root type
     atrasadas?: number | null; // Int
     pendentesHoje?: number | null; // Int
     pendentesSemana?: number | null; // Int
+    porPrioridade?: NexusGenRootTypes['HomeTarefasPorPrioridade'] | null; // HomeTarefasPorPrioridade
+    porVencimento?: NexusGenRootTypes['HomeTarefasPorVencimento'] | null; // HomeTarefasPorVencimento
+    ultimasTarefas?: Array<NexusGenRootTypes['HomeTarefaDetalhe'] | null> | null; // [HomeTarefaDetalhe]
+  }
+  HomeTarefasPorPrioridade: { // root type
+    alta?: number | null; // Int
+    baixa?: number | null; // Int
+    media?: number | null; // Int
+  }
+  HomeTarefasPorVencimento: { // root type
+    estaSemana?: number | null; // Int
+    hoje?: number | null; // Int
+    proximaSemana?: number | null; // Int
+  }
+  HomeTaxasMedia: { // root type
+    taxaEmbalagem?: number | null; // Float
+    taxaGerminacao?: number | null; // Float
+    taxaGlobal?: number | null; // Float
+    taxaTransplantio?: number | null; // Float
   }
   Localizacao: { // root type
     bairro?: string | null; // String
@@ -3466,6 +3573,34 @@ export interface NexusGenObjects {
     sobrenome?: string | null; // String
     telefone?: string | null; // String
   }
+  ProdutividadeAreaDetalhe: { // root type
+    areaId?: number | null; // Int
+    areaNome?: string | null; // String
+    taxaEmbalagem?: number | null; // Float
+    taxaGerminacao?: number | null; // Float
+    taxaGlobal?: number | null; // Float
+    taxaTransplantio?: number | null; // Float
+    totalBandejasSemeadas?: number | null; // Int
+    totalEmbalagensProduzidas?: number | null; // Int
+    totalLotes?: number | null; // Int
+    totalMudasTransplantadas?: number | null; // Int
+    totalPlantasColhidas?: number | null; // Int
+  }
+  ProdutividadeSetorRanking: { // root type
+    areaNome?: string | null; // String
+    areas?: Array<NexusGenRootTypes['ProdutividadeAreaDetalhe'] | null> | null; // [ProdutividadeAreaDetalhe]
+    setorId?: number | null; // Int
+    setorNome?: string | null; // String
+    taxaEmbalagem?: number | null; // Float
+    taxaGerminacao?: number | null; // Float
+    taxaGlobal?: number | null; // Float
+    taxaTransplantio?: number | null; // Float
+    totalBandejasSemeadas?: number | null; // Int
+    totalEmbalagensProduzidas?: number | null; // Int
+    totalLotes?: number | null; // Int
+    totalMudasTransplantadas?: number | null; // Int
+    totalPlantasColhidas?: number | null; // Int
+  }
   Protocolo: { // root type
     created_at?: NexusGenScalars['DateTime'] | null; // DateTime
     deleted_at?: NexusGenScalars['DateTime'] | null; // DateTime
@@ -3478,6 +3613,13 @@ export interface NexusGenObjects {
     updated_at?: NexusGenScalars['DateTime'] | null; // DateTime
   }
   Query: {};
+  RelatorioAgendaResult: { // root type
+    diasAVencer?: number | null; // Int
+    geradoEm?: string | null; // String
+    lotesComTaxaConclusao?: Array<NexusGenRootTypes['AgendaLoteTaxaConclusao'] | null> | null; // [AgendaLoteTaxaConclusao]
+    tarefasAVencer?: Array<NexusGenRootTypes['AgendaTarefaItem'] | null> | null; // [AgendaTarefaItem]
+    tarefasVencidas?: Array<NexusGenRootTypes['AgendaTarefaItem'] | null> | null; // [AgendaTarefaItem]
+  }
   RelatorioCicloResult: { // root type
     culturas?: Array<NexusGenRootTypes['CicloRankingCultura'] | null> | null; // [CicloRankingCultura]
     desvioMedioGeral?: number | null; // Float
@@ -3491,6 +3633,13 @@ export interface NexusGenObjects {
     taxaConclusaoMedia?: number | null; // Float
     totalUsuarios?: number | null; // Int
     usuarios?: Array<NexusGenRootTypes['DesempenhoUsuarioRanking'] | null> | null; // [DesempenhoUsuarioRanking]
+  }
+  RelatorioProdutividadeResult: { // root type
+    periodoFim?: string | null; // String
+    periodoInicio?: string | null; // String
+    setores?: Array<NexusGenRootTypes['ProdutividadeSetorRanking'] | null> | null; // [ProdutividadeSetorRanking]
+    taxaGlobalMedia?: number | null; // Float
+    totalLotes?: number | null; // Int
   }
   Reservatorio: { // root type
     created_at?: NexusGenScalars['DateTime'] | null; // DateTime
@@ -3572,6 +3721,27 @@ export interface NexusGenFieldTypes {
     titulo: string | null; // String
     updated_at: NexusGenScalars['DateTime'] | null; // DateTime
     usuario: NexusGenRootTypes['Usuario'] | null; // Usuario
+  }
+  AgendaLoteTaxaConclusao: { // field return type
+    loteId: number | null; // Int
+    loteNome: string | null; // String
+    setorNome: string | null; // String
+    tarefasConcluidas: number | null; // Int
+    tarefasVencidas: number | null; // Int
+    taxaConclusao: number | null; // Float
+    totalTarefas: number | null; // Int
+  }
+  AgendaTarefaItem: { // field return type
+    alerta: boolean | null; // Boolean
+    data: string | null; // String
+    descricao: string | null; // String
+    id: number | null; // Int
+    loteId: number | null; // Int
+    loteNome: string | null; // String
+    setorNome: string | null; // String
+    titulo: string | null; // String
+    usuarioId: number | null; // Int
+    usuarioNome: string | null; // String
   }
   Area: { // field return type
     conta: NexusGenRootTypes['Conta'] | null; // Conta
@@ -3727,33 +3897,106 @@ export interface NexusGenFieldTypes {
     nutriente: NexusGenRootTypes['Nutriente'] | null; // Nutriente
     teor_nutriente: NexusGenScalars['Decimal'] | null; // Decimal
   }
+  HomeAlertaCritico: { // field return type
+    data: string | null; // String
+    gravidade: string | null; // String
+    loteId: number | null; // Int
+    loteNome: string | null; // String
+    mensagem: string | null; // String
+    tipo: string | null; // String
+  }
+  HomeComparativoPeriodo: { // field return type
+    plantasColhidas: number | null; // Int
+    variacaoPercentual: number | null; // Float
+  }
   HomeCultura: { // field return type
+    cor: string | null; // String
     nome: string | null; // String
     quantidade: number | null; // Int
   }
+  HomeCulturaDestaque: { // field return type
+    nome: string | null; // String
+    percentualDoTotal: number | null; // Float
+    quantidade: number | null; // Int
+  }
   HomeDashboard: { // field return type
+    alertasCritico: Array<NexusGenRootTypes['HomeAlertaCritico'] | null> | null; // [HomeAlertaCritico]
     culturas: Array<NexusGenRootTypes['HomeCultura'] | null> | null; // [HomeCultura]
+    equipe: NexusGenRootTypes['HomeEquipeResumo'] | null; // HomeEquipeResumo
     producao: NexusGenRootTypes['HomeProducao'] | null; // HomeProducao
     resumo: NexusGenRootTypes['HomeResumo'] | null; // HomeResumo
     tarefas: NexusGenRootTypes['HomeTarefas'] | null; // HomeTarefas
   }
+  HomeEquipeResumo: { // field return type
+    atividadesNoPrazo: number | null; // Int
+    atividadesVencidas: number | null; // Int
+    membrosAtivos: number | null; // Int
+    taxaConclusaoMedia: number | null; // Float
+  }
+  HomeEspecieDetalhe: { // field return type
+    nome: string | null; // String
+    percentual: number | null; // Float
+    status: string | null; // String
+  }
+  HomeLoteStatus: { // field return type
+    cor: string | null; // String
+    quantidade: number | null; // Int
+    status: string | null; // String
+  }
   HomeProducao: { // field return type
+    comparativoPeriodo: NexusGenRootTypes['HomeComparativoPeriodo'] | null; // HomeComparativoPeriodo
+    culturaMaisProducao: NexusGenRootTypes['HomeCulturaDestaque'] | null; // HomeCulturaDestaque
     lotesComColheitaProxima: number | null; // Int
     periodoFim: string | null; // String
     periodoInicio: string | null; // String
+    producaoMensal: Array<NexusGenRootTypes['HomeProducaoMensal'] | null> | null; // [HomeProducaoMensal]
+    taxasMedia: NexusGenRootTypes['HomeTaxasMedia'] | null; // HomeTaxasMedia
     totalEmbalagensProduzidas: number | null; // Int
     totalPlantasColhidas: number | null; // Int
   }
+  HomeProducaoMensal: { // field return type
+    mes: string | null; // String
+    quantidade: number | null; // Float
+  }
   HomeResumo: { // field return type
+    especiesEmAndamento: Array<NexusGenRootTypes['HomeEspecieDetalhe'] | null> | null; // [HomeEspecieDetalhe]
     lotesAtivos: number | null; // Int
+    lotesComColheitaProxima: number | null; // Int
     lotesFinalizados: number | null; // Int
+    lotesPorStatus: Array<NexusGenRootTypes['HomeLoteStatus'] | null> | null; // [HomeLoteStatus]
     taxaConclusao: number | null; // Float
     totalLotes: number | null; // Int
+  }
+  HomeTarefaDetalhe: { // field return type
+    data: string | null; // String
+    id: number | null; // Int
+    loteNome: string | null; // String
+    titulo: string | null; // String
+    vencida: boolean | null; // Boolean
   }
   HomeTarefas: { // field return type
     atrasadas: number | null; // Int
     pendentesHoje: number | null; // Int
     pendentesSemana: number | null; // Int
+    porPrioridade: NexusGenRootTypes['HomeTarefasPorPrioridade'] | null; // HomeTarefasPorPrioridade
+    porVencimento: NexusGenRootTypes['HomeTarefasPorVencimento'] | null; // HomeTarefasPorVencimento
+    ultimasTarefas: Array<NexusGenRootTypes['HomeTarefaDetalhe'] | null> | null; // [HomeTarefaDetalhe]
+  }
+  HomeTarefasPorPrioridade: { // field return type
+    alta: number | null; // Int
+    baixa: number | null; // Int
+    media: number | null; // Int
+  }
+  HomeTarefasPorVencimento: { // field return type
+    estaSemana: number | null; // Int
+    hoje: number | null; // Int
+    proximaSemana: number | null; // Int
+  }
+  HomeTaxasMedia: { // field return type
+    taxaEmbalagem: number | null; // Float
+    taxaGerminacao: number | null; // Float
+    taxaGlobal: number | null; // Float
+    taxaTransplantio: number | null; // Float
   }
   Localizacao: { // field return type
     areas: NexusGenRootTypes['Area'][]; // [Area!]!
@@ -3880,6 +4123,34 @@ export interface NexusGenFieldTypes {
     sobrenome: string | null; // String
     telefone: string | null; // String
   }
+  ProdutividadeAreaDetalhe: { // field return type
+    areaId: number | null; // Int
+    areaNome: string | null; // String
+    taxaEmbalagem: number | null; // Float
+    taxaGerminacao: number | null; // Float
+    taxaGlobal: number | null; // Float
+    taxaTransplantio: number | null; // Float
+    totalBandejasSemeadas: number | null; // Int
+    totalEmbalagensProduzidas: number | null; // Int
+    totalLotes: number | null; // Int
+    totalMudasTransplantadas: number | null; // Int
+    totalPlantasColhidas: number | null; // Int
+  }
+  ProdutividadeSetorRanking: { // field return type
+    areaNome: string | null; // String
+    areas: Array<NexusGenRootTypes['ProdutividadeAreaDetalhe'] | null> | null; // [ProdutividadeAreaDetalhe]
+    setorId: number | null; // Int
+    setorNome: string | null; // String
+    taxaEmbalagem: number | null; // Float
+    taxaGerminacao: number | null; // Float
+    taxaGlobal: number | null; // Float
+    taxaTransplantio: number | null; // Float
+    totalBandejasSemeadas: number | null; // Int
+    totalEmbalagensProduzidas: number | null; // Int
+    totalLotes: number | null; // Int
+    totalMudasTransplantadas: number | null; // Int
+    totalPlantasColhidas: number | null; // Int
+  }
   Protocolo: { // field return type
     acoes: NexusGenRootTypes['Acao'][]; // [Acao!]!
     conta: NexusGenRootTypes['Conta'] | null; // Conta
@@ -3933,8 +4204,10 @@ export interface NexusGenFieldTypes {
     pessoas: NexusGenRootTypes['Pessoa'][]; // [Pessoa!]!
     protocolo: NexusGenRootTypes['Protocolo'] | null; // Protocolo
     protocolos: NexusGenRootTypes['Protocolo'][]; // [Protocolo!]!
+    relatorioAgendaTarefas: NexusGenRootTypes['RelatorioAgendaResult'] | null; // RelatorioAgendaResult
     relatorioCircoCultura: NexusGenRootTypes['RelatorioCicloResult'] | null; // RelatorioCicloResult
     relatorioDesempenhoEquipe: NexusGenRootTypes['RelatorioDesempenhoResult'] | null; // RelatorioDesempenhoResult
+    relatorioProdutividadeSetor: NexusGenRootTypes['RelatorioProdutividadeResult'] | null; // RelatorioProdutividadeResult
     reservatorio: NexusGenRootTypes['Reservatorio'] | null; // Reservatorio
     reservatorios: NexusGenRootTypes['Reservatorio'][]; // [Reservatorio!]!
     sNutritiva: NexusGenRootTypes['SNutritiva'] | null; // SNutritiva
@@ -3943,6 +4216,13 @@ export interface NexusGenFieldTypes {
     setors: NexusGenRootTypes['Setor'][]; // [Setor!]!
     usuario: NexusGenRootTypes['Usuario'] | null; // Usuario
     usuarios: NexusGenRootTypes['Usuario'][]; // [Usuario!]!
+  }
+  RelatorioAgendaResult: { // field return type
+    diasAVencer: number | null; // Int
+    geradoEm: string | null; // String
+    lotesComTaxaConclusao: Array<NexusGenRootTypes['AgendaLoteTaxaConclusao'] | null> | null; // [AgendaLoteTaxaConclusao]
+    tarefasAVencer: Array<NexusGenRootTypes['AgendaTarefaItem'] | null> | null; // [AgendaTarefaItem]
+    tarefasVencidas: Array<NexusGenRootTypes['AgendaTarefaItem'] | null> | null; // [AgendaTarefaItem]
   }
   RelatorioCicloResult: { // field return type
     culturas: Array<NexusGenRootTypes['CicloRankingCultura'] | null> | null; // [CicloRankingCultura]
@@ -3957,6 +4237,13 @@ export interface NexusGenFieldTypes {
     taxaConclusaoMedia: number | null; // Float
     totalUsuarios: number | null; // Int
     usuarios: Array<NexusGenRootTypes['DesempenhoUsuarioRanking'] | null> | null; // [DesempenhoUsuarioRanking]
+  }
+  RelatorioProdutividadeResult: { // field return type
+    periodoFim: string | null; // String
+    periodoInicio: string | null; // String
+    setores: Array<NexusGenRootTypes['ProdutividadeSetorRanking'] | null> | null; // [ProdutividadeSetorRanking]
+    taxaGlobalMedia: number | null; // Float
+    totalLotes: number | null; // Int
   }
   Reservatorio: { // field return type
     conta: NexusGenRootTypes['Conta'] | null; // Conta
@@ -4048,6 +4335,27 @@ export interface NexusGenFieldTypeNames {
     titulo: 'String'
     updated_at: 'DateTime'
     usuario: 'Usuario'
+  }
+  AgendaLoteTaxaConclusao: { // field return type name
+    loteId: 'Int'
+    loteNome: 'String'
+    setorNome: 'String'
+    tarefasConcluidas: 'Int'
+    tarefasVencidas: 'Int'
+    taxaConclusao: 'Float'
+    totalTarefas: 'Int'
+  }
+  AgendaTarefaItem: { // field return type name
+    alerta: 'Boolean'
+    data: 'String'
+    descricao: 'String'
+    id: 'Int'
+    loteId: 'Int'
+    loteNome: 'String'
+    setorNome: 'String'
+    titulo: 'String'
+    usuarioId: 'Int'
+    usuarioNome: 'String'
   }
   Area: { // field return type name
     conta: 'Conta'
@@ -4203,33 +4511,106 @@ export interface NexusGenFieldTypeNames {
     nutriente: 'Nutriente'
     teor_nutriente: 'Decimal'
   }
+  HomeAlertaCritico: { // field return type name
+    data: 'String'
+    gravidade: 'String'
+    loteId: 'Int'
+    loteNome: 'String'
+    mensagem: 'String'
+    tipo: 'String'
+  }
+  HomeComparativoPeriodo: { // field return type name
+    plantasColhidas: 'Int'
+    variacaoPercentual: 'Float'
+  }
   HomeCultura: { // field return type name
+    cor: 'String'
     nome: 'String'
     quantidade: 'Int'
   }
+  HomeCulturaDestaque: { // field return type name
+    nome: 'String'
+    percentualDoTotal: 'Float'
+    quantidade: 'Int'
+  }
   HomeDashboard: { // field return type name
+    alertasCritico: 'HomeAlertaCritico'
     culturas: 'HomeCultura'
+    equipe: 'HomeEquipeResumo'
     producao: 'HomeProducao'
     resumo: 'HomeResumo'
     tarefas: 'HomeTarefas'
   }
+  HomeEquipeResumo: { // field return type name
+    atividadesNoPrazo: 'Int'
+    atividadesVencidas: 'Int'
+    membrosAtivos: 'Int'
+    taxaConclusaoMedia: 'Float'
+  }
+  HomeEspecieDetalhe: { // field return type name
+    nome: 'String'
+    percentual: 'Float'
+    status: 'String'
+  }
+  HomeLoteStatus: { // field return type name
+    cor: 'String'
+    quantidade: 'Int'
+    status: 'String'
+  }
   HomeProducao: { // field return type name
+    comparativoPeriodo: 'HomeComparativoPeriodo'
+    culturaMaisProducao: 'HomeCulturaDestaque'
     lotesComColheitaProxima: 'Int'
     periodoFim: 'String'
     periodoInicio: 'String'
+    producaoMensal: 'HomeProducaoMensal'
+    taxasMedia: 'HomeTaxasMedia'
     totalEmbalagensProduzidas: 'Int'
     totalPlantasColhidas: 'Int'
   }
+  HomeProducaoMensal: { // field return type name
+    mes: 'String'
+    quantidade: 'Float'
+  }
   HomeResumo: { // field return type name
+    especiesEmAndamento: 'HomeEspecieDetalhe'
     lotesAtivos: 'Int'
+    lotesComColheitaProxima: 'Int'
     lotesFinalizados: 'Int'
+    lotesPorStatus: 'HomeLoteStatus'
     taxaConclusao: 'Float'
     totalLotes: 'Int'
+  }
+  HomeTarefaDetalhe: { // field return type name
+    data: 'String'
+    id: 'Int'
+    loteNome: 'String'
+    titulo: 'String'
+    vencida: 'Boolean'
   }
   HomeTarefas: { // field return type name
     atrasadas: 'Int'
     pendentesHoje: 'Int'
     pendentesSemana: 'Int'
+    porPrioridade: 'HomeTarefasPorPrioridade'
+    porVencimento: 'HomeTarefasPorVencimento'
+    ultimasTarefas: 'HomeTarefaDetalhe'
+  }
+  HomeTarefasPorPrioridade: { // field return type name
+    alta: 'Int'
+    baixa: 'Int'
+    media: 'Int'
+  }
+  HomeTarefasPorVencimento: { // field return type name
+    estaSemana: 'Int'
+    hoje: 'Int'
+    proximaSemana: 'Int'
+  }
+  HomeTaxasMedia: { // field return type name
+    taxaEmbalagem: 'Float'
+    taxaGerminacao: 'Float'
+    taxaGlobal: 'Float'
+    taxaTransplantio: 'Float'
   }
   Localizacao: { // field return type name
     areas: 'Area'
@@ -4356,6 +4737,34 @@ export interface NexusGenFieldTypeNames {
     sobrenome: 'String'
     telefone: 'String'
   }
+  ProdutividadeAreaDetalhe: { // field return type name
+    areaId: 'Int'
+    areaNome: 'String'
+    taxaEmbalagem: 'Float'
+    taxaGerminacao: 'Float'
+    taxaGlobal: 'Float'
+    taxaTransplantio: 'Float'
+    totalBandejasSemeadas: 'Int'
+    totalEmbalagensProduzidas: 'Int'
+    totalLotes: 'Int'
+    totalMudasTransplantadas: 'Int'
+    totalPlantasColhidas: 'Int'
+  }
+  ProdutividadeSetorRanking: { // field return type name
+    areaNome: 'String'
+    areas: 'ProdutividadeAreaDetalhe'
+    setorId: 'Int'
+    setorNome: 'String'
+    taxaEmbalagem: 'Float'
+    taxaGerminacao: 'Float'
+    taxaGlobal: 'Float'
+    taxaTransplantio: 'Float'
+    totalBandejasSemeadas: 'Int'
+    totalEmbalagensProduzidas: 'Int'
+    totalLotes: 'Int'
+    totalMudasTransplantadas: 'Int'
+    totalPlantasColhidas: 'Int'
+  }
   Protocolo: { // field return type name
     acoes: 'Acao'
     conta: 'Conta'
@@ -4409,8 +4818,10 @@ export interface NexusGenFieldTypeNames {
     pessoas: 'Pessoa'
     protocolo: 'Protocolo'
     protocolos: 'Protocolo'
+    relatorioAgendaTarefas: 'RelatorioAgendaResult'
     relatorioCircoCultura: 'RelatorioCicloResult'
     relatorioDesempenhoEquipe: 'RelatorioDesempenhoResult'
+    relatorioProdutividadeSetor: 'RelatorioProdutividadeResult'
     reservatorio: 'Reservatorio'
     reservatorios: 'Reservatorio'
     sNutritiva: 'SNutritiva'
@@ -4419,6 +4830,13 @@ export interface NexusGenFieldTypeNames {
     setors: 'Setor'
     usuario: 'Usuario'
     usuarios: 'Usuario'
+  }
+  RelatorioAgendaResult: { // field return type name
+    diasAVencer: 'Int'
+    geradoEm: 'String'
+    lotesComTaxaConclusao: 'AgendaLoteTaxaConclusao'
+    tarefasAVencer: 'AgendaTarefaItem'
+    tarefasVencidas: 'AgendaTarefaItem'
   }
   RelatorioCicloResult: { // field return type name
     culturas: 'CicloRankingCultura'
@@ -4433,6 +4851,13 @@ export interface NexusGenFieldTypeNames {
     taxaConclusaoMedia: 'Float'
     totalUsuarios: 'Int'
     usuarios: 'DesempenhoUsuarioRanking'
+  }
+  RelatorioProdutividadeResult: { // field return type name
+    periodoFim: 'String'
+    periodoInicio: 'String'
+    setores: 'ProdutividadeSetorRanking'
+    taxaGlobalMedia: 'Float'
+    totalLotes: 'Int'
   }
   Reservatorio: { // field return type name
     conta: 'Conta'
@@ -5077,6 +5502,10 @@ export interface NexusGenArgTypes {
       orderBy?: NexusGenInputs['ProtocoloOrderByWithRelationInput'][] | null; // [ProtocoloOrderByWithRelationInput!]
       where?: NexusGenInputs['ProtocoloWhereInput'] | null; // ProtocoloWhereInput
     }
+    relatorioAgendaTarefas: { // args
+      contaId: number; // Int!
+      filtros?: NexusGenInputs['RelatorioAgendaFiltros'] | null; // RelatorioAgendaFiltros
+    }
     relatorioCircoCultura: { // args
       contaId: number; // Int!
       filtros?: NexusGenInputs['RelatorioCicloFiltros'] | null; // RelatorioCicloFiltros
@@ -5084,6 +5513,10 @@ export interface NexusGenArgTypes {
     relatorioDesempenhoEquipe: { // args
       contaId: number; // Int!
       filtros?: NexusGenInputs['RelatorioDesempenhoFiltros'] | null; // RelatorioDesempenhoFiltros
+    }
+    relatorioProdutividadeSetor: { // args
+      contaId: number; // Int!
+      filtros?: NexusGenInputs['RelatorioProdutividadeFiltros'] | null; // RelatorioProdutividadeFiltros
     }
     reservatorio: { // args
       where: NexusGenInputs['ReservatorioWhereUniqueInput']; // ReservatorioWhereUniqueInput!

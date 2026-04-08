@@ -287,6 +287,12 @@ const Query = queryType({
         semanaFim.setDate(semanaFim.getDate() + 7)
         const mesAtras = new Date(hoje)
         mesAtras.setDate(mesAtras.getDate() - 30)
+        const doisMesesAtras = new Date(hoje)
+        doisMesesAtras.setDate(doisMesesAtras.getDate() - 60)
+        const proximaSemanaInicio = new Date(hoje)
+        proximaSemanaInicio.setDate(proximaSemanaInicio.getDate() + 7)
+        const proximaSemanaFim = new Date(hoje)
+        proximaSemanaFim.setDate(proximaSemanaFim.getDate() + 14)
 
         // Buscar áreas da conta
         const areas = await prisma.area.findMany({
@@ -324,29 +330,135 @@ const Query = queryType({
         const totalLotes = lotes.length
         const lotesAtivos = lotes.filter(l => l.ativo === true).length
         const lotesFinalizados = totalLotes - lotesAtivos
-        const taxaConclusao = totalLotes > 0 
+        const taxaConclusao = totalLotes > 0
           ? parseFloat(((lotesFinalizados / totalLotes) * 100).toFixed(1))
           : 0
 
-        // Produção total (últimos 30 dias)
-        const lotesComColheita = lotes.filter(l => l.colheita_data && new Date(l.colheita_data) >= mesAtras)
-        const totalPlantasColhidas = lotesComColheita.reduce((sum, l) => 
-          sum + (l.plantas_colhidas || 0), 0
-        )
-        const totalEmbalagensProduzidas = lotesComColheita.reduce((sum, l) => 
-          sum + (l.embalagens_produzidas || 0), 0
-        )
-        
-        // Lotes com colheita nos próximos 7 dias
-        const lotesComColheitaProxima = lotes.filter(l => {
+        // NOVO: Lotes por status
+        const lotesPorStatus = [
+          { status: 'Em Produção', quantidade: lotesAtivos, cor: '#059669' },
+          { status: 'Finalizados', quantidade: lotesFinalizados, cor: '#6B7280' },
+        ]
+
+        // NOVO: Lotes com colheita próxima (próximos 7 dias)
+        const lotesColheitaProximaList = lotes.filter(l => {
           if (!l.colheita_data) return false
           const dataColheita = new Date(l.colheita_data)
           return dataColheita >= hoje && dataColheita <= semanaFim
-        }).length
+        })
+
+        // NOVO: Espécies em andamento (top culturas ativas com percentual)
+        const culturaMapAtivas = {}
+        lotes.forEach(lote => {
+          if (lote.ativo && lote.cultura) {
+            const nome = lote.cultura.nome || 'Sem cultura'
+            culturaMapAtivas[nome] = (culturaMapAtivas[nome] || 0) + 1
+          }
+        })
+        const totalAtivas = Object.values(culturaMapAtivas).reduce((s, v) => s + v, 0) || 1
+        const especiesEmAndamento = Object.entries(culturaMapAtivas)
+          .map(([nome, qtd]) => ({
+            nome,
+            percentual: parseFloat(((qtd / totalAtivas) * 100).toFixed(1)),
+            status: 'Em produção',
+          }))
+          .sort((a, b) => b.percentual - a.percentual)
+          .slice(0, 5)
+
+        // Produção total (últimos 30 dias)
+        const lotesComColheita = lotes.filter(l => l.colheita_data && new Date(l.colheita_data) >= mesAtras)
+        const totalPlantasColhidas = lotesComColheita.reduce((sum, l) =>
+          sum + (l.plantas_colhidas || 0), 0
+        )
+        const totalEmbalagensProduzidas = lotesComColheita.reduce((sum, l) =>
+          sum + (l.embalagens_produzidas || 0), 0
+        )
+
+        const lotesComColheitaProxima = lotesColheitaProximaList.length
 
         // Período de produção (últimos 30 dias)
         const periodoInicio = mesAtras.toISOString().split('T')[0]
         const periodoFim = hoje.toISOString().split('T')[0]
+
+        // NOVO: Produção mensal (últimos 6 meses)
+        const mesesLabels = []
+        const producaoMensalData = []
+        for (let i = 5; i >= 0; i--) {
+          const mesRef = new Date(hoje)
+          mesRef.setMonth(mesRef.getMonth() - i)
+          const mesInicio = new Date(mesRef.getFullYear(), mesRef.getMonth(), 1)
+          const mesFim = new Date(mesRef.getFullYear(), mesRef.getMonth() + 1, 0, 23, 59, 59)
+          const nomeMes = mesRef.toLocaleDateString('pt-BR', { month: 'short' })
+
+          const lotesMes = lotes.filter(l => {
+            if (!l.colheita_data) return false
+            const data = new Date(l.colheita_data)
+            return data >= mesInicio && data <= mesFim
+          })
+          const plantasMes = lotesMes.reduce((sum, l) => sum + (l.plantas_colhidas || 0), 0)
+
+          mesesLabels.push(nomeMes)
+          producaoMensalData.push({ mes: nomeMes, quantidade: plantasMes })
+        }
+
+        // NOVO: Taxas médias de produtividade (lotes finalizados)
+        const lotesFinalizadosList = lotes.filter(l => !l.ativo && l.colheita_data)
+        let taxasMedia = { taxaGerminacao: 0, taxaTransplantio: 0, taxaEmbalagem: 0, taxaGlobal: 0 }
+        if (lotesFinalizadosList.length > 0) {
+          const taxas = lotesFinalizadosList.map(l => {
+            const bandejas = l.bandejas_semeadas || 0
+            const mudas = l.mudas_transplantadas || 0
+            const plantas = l.plantas_colhidas || 0
+            const embalagens = l.embalagens_produzidas || 0
+            return {
+              taxaGerminacao: bandejas > 0 ? (mudas / bandejas) * 100 : 0,
+              taxaTransplantio: mudas > 0 ? (plantas / mudas) * 100 : 0,
+              taxaEmbalagem: plantas > 0 ? (embalagens / plantas) * 100 : 0,
+              taxaGlobal: bandejas > 0 ? (embalagens / bandejas) * 100 : 0,
+            }
+          })
+          const n = lotesFinalizadosList.length
+          taxasMedia = {
+            taxaGerminacao: parseFloat((taxas.reduce((s, t) => s + t.taxaGerminacao, 0) / n).toFixed(1)),
+            taxaTransplantio: parseFloat((taxas.reduce((s, t) => s + t.taxaTransplantio, 0) / n).toFixed(1)),
+            taxaEmbalagem: parseFloat((taxas.reduce((s, t) => s + t.taxaEmbalagem, 0) / n).toFixed(1)),
+            taxaGlobal: parseFloat((taxas.reduce((s, t) => s + t.taxaGlobal, 0) / n).toFixed(1)),
+          }
+        }
+
+        // NOVO: Comparativo com período anterior (30 dias anteriores)
+        const lotesPeriodoAnterior = lotes.filter(l =>
+          l.colheita_data && new Date(l.colheita_data) >= doisMesesAtras && new Date(l.colheita_data) < mesAtras
+        )
+        const plantasPeriodoAnterior = lotesPeriodoAnterior.reduce((sum, l) =>
+          sum + (l.plantas_colhidas || 0), 0
+        )
+        const variacaoPercentual = plantasPeriodoAnterior > 0
+          ? parseFloat((((totalPlantasColhidas - plantasPeriodoAnterior) / plantasPeriodoAnterior) * 100).toFixed(1))
+          : 0
+        const comparativoPeriodo = {
+          plantasColhidas: plantasPeriodoAnterior,
+          variacaoPercentual,
+        }
+
+        // NOVO: Cultura mais produção
+        const culturaProducaoMap = {}
+        lotesComColheita.forEach(l => {
+          if (l.cultura) {
+            const nome = l.cultura.nome || 'Sem cultura'
+            culturaProducaoMap[nome] = (culturaProducaoMap[nome] || 0) + (l.plantas_colhidas || 0)
+          }
+        })
+        const totalProducaoCulturas = Object.values(culturaProducaoMap).reduce((s, v) => s + v, 0) || 1
+        const culturaMaisProducaoEntry = Object.entries(culturaProducaoMap)
+          .sort((a, b) => b[1] - a[1])[0]
+        const culturaMaisProducao = culturaMaisProducaoEntry
+          ? {
+              nome: culturaMaisProducaoEntry[0],
+              quantidade: culturaMaisProducaoEntry[1],
+              percentualDoTotal: parseFloat(((culturaMaisProducaoEntry[1] / totalProducaoCulturas) * 100).toFixed(1)),
+            }
+          : { nome: 'N/A', quantidade: 0, percentualDoTotal: 0 }
 
         // Buscar agendas da conta
         const agendas = await prisma.agenda.findMany({
@@ -355,10 +467,10 @@ const Query = queryType({
             deleted_at: null,
             finalizado: false,
           },
-          select: {
-            data: true,
-            finalizado: true,
+          include: {
+            lote: { select: { nome: true } },
           },
+          orderBy: { data: 'asc' },
         })
 
         // Tarefas pendentes
@@ -381,7 +493,48 @@ const Query = queryType({
           return dataAgenda < hoje
         }).length
 
-        // Distribuição por cultura
+        // NOVO: Tarefas por vencimento
+        const tarefasHoje = agendas.filter(a => {
+          if (!a.data) return false
+          const d = new Date(a.data); d.setHours(0, 0, 0, 0)
+          return d.getTime() === hoje.getTime()
+        }).length
+        const tarefasEstaSemana = agendas.filter(a => {
+          if (!a.data) return false
+          const d = new Date(a.data)
+          return d > hoje && d <= semanaFim
+        }).length
+        const tarefasProximaSemana = agendas.filter(a => {
+          if (!a.data) return false
+          const d = new Date(a.data)
+          return d >= proximaSemanaInicio && d <= proximaSemanaFim
+        }).length
+        const porVencimento = { hoje: tarefasHoje, estaSemana: tarefasEstaSemana, proximaSemana: tarefasProximaSemana }
+
+        // NOVO: Tarefas por prioridade (baseado em alertas e vencimento)
+        const tarefasAltaPrioridade = agendas.filter(a => a.alerta === true || (a.data && new Date(a.data) < hoje)).length
+        const tarefasMediaPrioridade = agendas.filter(a => {
+          if (!a.data || a.alerta) return false
+          const d = new Date(a.data)
+          return d >= hoje && d <= amanha
+        }).length
+        const tarefasBaixaPrioridade = agendas.filter(a => {
+          if (!a.data || a.alerta) return false
+          const d = new Date(a.data)
+          return d > amanha
+        }).length
+        const porPrioridade = { alta: tarefasAltaPrioridade, media: tarefasMediaPrioridade, baixa: tarefasBaixaPrioridade }
+
+        // NOVO: Últimas tarefas (próximas 5)
+        const ultimasTarefas = agendas.slice(0, 5).map(a => ({
+          id: a.id,
+          titulo: a.titulo || 'Sem título',
+          loteNome: a.lote?.nome || 'Sem lote',
+          data: a.data ? new Date(a.data).toISOString().split('T')[0] : null,
+          vencida: a.data ? new Date(a.data) < hoje : false,
+        }))
+
+        // Distribuição por cultura (top 3)
         const culturaMap = {}
         lotes.forEach(lote => {
           if (lote.ativo && lote.cultura) {
@@ -389,11 +542,85 @@ const Query = queryType({
             culturaMap[nomeCultura] = (culturaMap[nomeCultura] || 0) + 1
           }
         })
-        
+
+        const coresCulturas = ['#059669', '#2563EB', '#8B5CF6', '#DC2626', '#F59E0B', '#EC4899']
         const culturas = Object.entries(culturaMap)
-          .map(([nome, quantidade]) => ({ nome, quantidade }))
+          .map(([nome, quantidade], idx) => ({ nome, quantidade, cor: coresCulturas[idx % coresCulturas.length] }))
           .sort((a, b) => b.quantidade - a.quantidade)
-          .slice(0, 3) // Top 3
+          .slice(0, 3)
+
+        // NOVO: Resumo da equipe (via ConectaConta)
+        const conectaContas = await prisma.conectaConta.findMany({
+          where: {
+            conta: { id: contaId },
+            usuario: { ativo: true },
+          },
+          include: { usuario: true },
+        })
+        const membrosAtivos = conectaContas.length
+
+        // Buscar atividades dos usuários nos lotes
+        const usuariosIds = conectaContas.map(cc => cc.usuario.id)
+        const agendasUsuario = await prisma.agenda.findMany({
+          where: {
+            conta: { id: contaId },
+            usuario: { id: { in: usuariosIds } },
+            deleted_at: null,
+          },
+        })
+        const agendasFinalizadas = agendasUsuario.filter(a => a.finalizado === true).length
+        const agendasNoPrazo = agendasUsuario.filter(a => {
+          if (!a.finalizado || !a.data) return false
+          return new Date(a.data) >= hoje
+        }).length
+        const agendasVencidas = agendasUsuario.filter(a => {
+          if (a.finalizado || !a.data) return false
+          return new Date(a.data) < hoje
+        }).length
+        const taxaConclusaoMedia = membrosAtivos > 0 && agendasUsuario.length > 0
+          ? parseFloat(((agendasFinalizadas / agendasUsuario.length) * 100).toFixed(1))
+          : 0
+
+        const equipe = {
+          membrosAtivos,
+          taxaConclusaoMedia,
+          atividadesNoPrazo: agendasNoPrazo,
+          atividadesVencidas: agendasVencidas,
+        }
+
+        // NOVO: Alertas críticos
+        const alertasCritico = []
+
+        // Alerta: tarefas vencidas críticas
+        if (tarefasAtrasadas > 0) {
+          const tarefasVencidasList = agendas.filter(a => a.data && new Date(a.data) < hoje).slice(0, 3)
+          tarefasVencidasList.forEach(a => {
+            alertasCritico.push({
+              tipo: 'tarefa_vencida',
+              mensagem: `"${a.titulo}" está atrasada`,
+              loteId: a.fk_lotes_id,
+              loteNome: a.lote?.nome || 'Sem lote',
+              gravidade: 'alta',
+              data: a.data ? new Date(a.data).toISOString().split('T')[0] : null,
+            })
+          })
+        }
+
+        // Alerta: lotes com colheita próxima
+        lotesColheitaProximaList.slice(0, 2).forEach(l => {
+          alertasCritico.push({
+            tipo: 'colheita_proxima',
+            mensagem: `Colheita prevista para ${new Date(l.colheita_data).toLocaleDateString('pt-BR')}`,
+            loteId: l.id,
+            loteNome: l.nome || 'Sem nome',
+            gravidade: 'media',
+            data: l.colheita_data ? new Date(l.colheita_data).toISOString().split('T')[0] : null,
+          })
+        })
+
+        // Ordenar alertas por gravidade
+        const gravidadeOrder = { alta: 0, media: 1, baixa: 2 }
+        alertasCritico.sort((a, b) => gravidadeOrder[a.gravidade] - gravidadeOrder[b.gravidade])
 
         return {
           resumo: {
@@ -401,11 +628,17 @@ const Query = queryType({
             lotesAtivos,
             lotesFinalizados,
             taxaConclusao,
+            lotesPorStatus,
+            lotesComColheitaProxima,
+            especiesEmAndamento,
           },
           tarefas: {
             pendentesHoje: tarefasPendentesHoje,
             pendentesSemana: tarefasPendentesSemana,
             atrasadas: tarefasAtrasadas,
+            porVencimento,
+            porPrioridade,
+            ultimasTarefas,
           },
           producao: {
             totalPlantasColhidas,
@@ -413,8 +646,14 @@ const Query = queryType({
             lotesComColheitaProxima,
             periodoInicio,
             periodoFim,
+            producaoMensal: producaoMensalData,
+            taxasMedia,
+            comparativoPeriodo,
+            culturaMaisProducao,
           },
           culturas,
+          equipe,
+          alertasCritico: alertasCritico.slice(0, 5),
         }
       },
     })
