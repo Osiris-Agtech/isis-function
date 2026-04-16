@@ -24,7 +24,7 @@ const Usuario = require('./usuario')
 const ConectaConta = require('./usuarios_contas_cargos')
 const Setor = require('./setor')
 const Query = require('./query')
-const Mutation = require('./mutation')
+const { Mutation, UpdateFertilizanteInput } = require('./mutation')
 const DateTime = require('./datetime')
 const LoginResponse = require('./loginResponse')
 const {
@@ -150,5 +150,6 @@ module.exports = {
   Setor,
   Query,
   Mutation,
+  UpdateFertilizanteInput,
   LoginResponse,
 }

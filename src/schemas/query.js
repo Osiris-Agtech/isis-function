@@ -52,9 +52,26 @@ const Query = queryType({
 
     t.crud.fertilizantes({
       filtering: true,
-      ordering: true
+      ordering: true,
+      resolve: async (root, args, ctx, info, originalResolve) => {
+        const where = args.where || {}
+        if (!where.deleted_at) {
+          where.deleted_at = null
+        }
+        args.where = where
+        return originalResolve(root, args, ctx, info)
+      },
     })
-    t.crud.fertilizante()
+
+    t.crud.fertilizante({
+      resolve: async (root, args, ctx, info, originalResolve) => {
+        const result = await originalResolve(root, args, ctx, info)
+        if (result?.deleted_at) {
+          return null
+        }
+        return result
+      },
+    })
 
     // ### FAZER MANUALMENTE
     // t.crud.fertilizantes_nutrientes({

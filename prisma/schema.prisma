@@ -108,15 +108,17 @@ model Cultura {
 }
 
 model Fertilizante {
-  id                                  Int                                   @id @default(autoincrement())
-  nome                                String?                               @db.VarChar
-  c_eletrica                          Decimal?                              @db.Decimal
-  compatibilidade                     Int?
-  solubilidade                        Decimal?                              @db.Decimal
-  created_at                          DateTime?                             @default(now()) @db.Timestamp(6)
-  fertilizantes_nutrientes            Fertilizantes_Nutrientes[]
-  solucoes_fertilizantes_concentradas Solucoes_Fertilizantes_Concentradas[]
+  id              Int           @id @default(autoincrement())
+  nome            String?       @db.VarChar
+  c_eletrica      Decimal?      @db.Decimal
+  compatibilidade Int?
+  solubilidade    Decimal?      @db.Decimal
+  created_at      DateTime?     @default(now()) @db.Timestamp(6)
+  deleted_at      DateTime?     @db.Timestamp(6)
+  fertilizantes_nutrientes             Fertilizantes_Nutrientes[]
+  solucoes_fertilizantes_concentradas  Solucoes_Fertilizantes_Concentradas[]
 
+  @@index([deleted_at])
   @@map("fertilizantes")
 }
 

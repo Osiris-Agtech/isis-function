@@ -1,4 +1,4 @@
-const { mutationType, list, nonNull, stringArg, intArg } = require('@nexus/schema');
+const { mutationType, list, nonNull, stringArg, intArg, floatArg } = require('@nexus/schema');
 const { booleanArg, arg, inputObjectType } = require('nexus');
 const nodemailer = require("nodemailer");
 const bcrypt = require('bcrypt');
@@ -453,28 +453,211 @@ const Mutation = mutationType({
             }
         )
 
-        t.field(
-            "softDeleteSNutritiva",
-            {
-                type: "SNutritiva",
-                args: {
-                    snutritivaId: nonNull(intArg()),
-                },
-                resolve: async (_, args, { prisma }) => {
-                    const snutritivaUpdate = await prisma.SNutritiva.update({
-                        where: {
-                            id: args.snutritivaId,
-                        },
-                        data: { deleted_at: new Date().toISOString() },
-                    });
+t.field(
+  "softDeleteSNutritiva",
+  {
+    type: "SNutritiva",
+    args: {
+      snutritivaId: nonNull(intArg()),
+    },
+    resolve: async (_, args, { prisma }) => {
+      const snutritivaUpdate = await prisma.SNutritiva.update({
+        where: {
+          id: args.snutritivaId,
+        },
+        data: { deleted_at: new Date().toISOString() },
+      });
 
-                    return snutritivaUpdate;
-                }
-            }
-        )
+      return snutritivaUpdate;
+    }
+  }
+)
 
-        t.field(
-            "softDeleteAgenda",
+t.field(
+  "softDeleteAreaCascade",
+  {
+    type: "Area",
+    args: {
+      areaId: nonNull(intArg()),
+    },
+    resolve: async (_, args, { prisma }) => {
+      return await prisma.$transaction(async (tx) => {
+        const area = await tx.area.findUnique({
+          where: { id: args.areaId },
+          select: { id: true, deleted_at: true },
+        });
+
+        if (!area) throw new UserInputError("Area não encontrada");
+        if (area.deleted_at) throw new UserInputError("Area já deletada");
+
+        const setores = await tx.setor.findMany({
+          where: { fk_areas_id: args.areaId, deleted_at: null },
+          select: { id: true },
+        });
+
+        const setorIds = setores.map((s) => s.id);
+
+        if (setorIds.length > 0) {
+          await tx.lote.updateMany({
+            where: { fk_setores_id: { in: setorIds }, deleted_at: null },
+            data: { deleted_at: new Date().toISOString() },
+          });
+        }
+
+        await tx.setor.updateMany({
+          where: { fk_areas_id: args.areaId, deleted_at: null },
+          data: { deleted_at: new Date().toISOString() },
+        });
+
+        return await tx.area.update({
+          where: { id: args.areaId },
+          data: { deleted_at: new Date().toISOString() },
+        });
+      });
+    },
+  }
+)
+
+t.field(
+  "softDeleteSetorCascade",
+  {
+    type: "Setor",
+    args: {
+      setorId: nonNull(intArg()),
+    },
+    resolve: async (_, args, { prisma }) => {
+      return await prisma.$transaction(async (tx) => {
+        const setor = await tx.setor.findUnique({
+          where: { id: args.setorId },
+          select: { id: true, deleted_at: true },
+        });
+
+        if (!setor) throw new UserInputError("Setor não encontrado");
+        if (setor.deleted_at) throw new UserInputError("Setor já deletado");
+
+        await tx.lote.updateMany({
+          where: { fk_setores_id: args.setorId, deleted_at: null },
+          data: { deleted_at: new Date().toISOString() },
+        });
+
+        return await tx.setor.update({
+          where: { id: args.setorId },
+          data: { deleted_at: new Date().toISOString() },
+        });
+      });
+    },
+  }
+)
+
+t.field(
+  "softDeleteReservatorioCascade",
+  {
+    type: "Reservatorio",
+    args: {
+      reservatorioId: nonNull(intArg()),
+    },
+    resolve: async (_, args, { prisma }) => {
+      return await prisma.$transaction(async (tx) => {
+        const reservatorio = await tx.reservatorio.findUnique({
+          where: { id: args.reservatorioId },
+          select: { id: true, deleted_at: true },
+        });
+
+        if (!reservatorio) throw new UserInputError("Reservatorio não encontrado");
+        if (reservatorio.deleted_at) throw new UserInputError("Reservatorio já deletado");
+
+        await tx.lote.updateMany({
+          where: { fk_reservatorios_id: args.reservatorioId, deleted_at: null },
+          data: { deleted_at: new Date().toISOString() },
+        });
+
+        return await tx.reservatorio.update({
+          where: { id: args.reservatorioId },
+          data: { deleted_at: new Date().toISOString() },
+        });
+      });
+    },
+  }
+)
+
+t.field(
+  "softDeleteSNutritivaCascade",
+  {
+    type: "SNutritiva",
+    args: {
+      snutritivaId: nonNull(intArg()),
+    },
+    resolve: async (_, args, { prisma }) => {
+      return await prisma.$transaction(async (tx) => {
+        const snutritiva = await tx.SNutritiva.findUnique({
+          where: { id: args.snutritivaId },
+          select: { id: true, deleted_at: true },
+        });
+
+        if (!snutritiva) throw new UserInputError("SNutritiva não encontrada");
+        if (snutritiva.deleted_at) throw new UserInputError("SNutritiva já deletada");
+
+        const reservatorios = await tx.reservatorio.findMany({
+          where: { fk_snutritivas_id: args.snutritivaId, deleted_at: null },
+          select: { id: true },
+        });
+
+        const reservatorioIds = reservatorios.map((r) => r.id);
+
+        if (reservatorioIds.length > 0) {
+          await tx.lote.updateMany({
+            where: { fk_reservatorios_id: { in: reservatorioIds }, deleted_at: null },
+            data: { deleted_at: new Date().toISOString() },
+          });
+        }
+
+        await tx.reservatorio.updateMany({
+          where: { fk_snutritivas_id: args.snutritivaId, deleted_at: null },
+          data: { deleted_at: new Date().toISOString() },
+        });
+
+        return await tx.SNutritiva.update({
+          where: { id: args.snutritivaId },
+          data: { deleted_at: new Date().toISOString() },
+        });
+      });
+    },
+  }
+)
+
+t.field(
+  "softDeleteProtocoloCascade",
+  {
+    type: "Protocolo",
+    args: {
+      protocoloId: nonNull(intArg()),
+    },
+    resolve: async (_, args, { prisma }) => {
+      return await prisma.$transaction(async (tx) => {
+        const protocolo = await tx.protocolo.findUnique({
+          where: { id: args.protocoloId },
+          select: { id: true, deleted_at: true },
+        });
+
+        if (!protocolo) throw new UserInputError("Protocolo não encontrado");
+        if (protocolo.deleted_at) throw new UserInputError("Protocolo já deletado");
+
+        await tx.lote.updateMany({
+          where: { fk_protocolos_id: args.protocoloId, deleted_at: null },
+          data: { deleted_at: new Date().toISOString() },
+        });
+
+        return await tx.protocolo.update({
+          where: { id: args.protocoloId },
+          data: { deleted_at: new Date().toISOString() },
+        });
+      });
+    },
+  }
+)
+
+t.field(
+  "softDeleteAgenda",
             {
                 type: "Agenda",
                 args: {
@@ -1746,101 +1929,203 @@ const Mutation = mutationType({
             }
         )
 
-        t.field(
-            "login",
-            {
-                type: "LoginResponse",
-                args: {
-                    email: stringArg(),
-                    senha: nonNull(stringArg()),
-                    codigo: stringArg(),
-                },
-                resolve: async (_, args, { prisma }) => {
-                    try {
-                        // Validação: pelo menos senha deve ser fornecida
-                        if (!args.senha) {
-                            throw new UserInputError('Senha é obrigatória');
-                        }
+t.field(
+  "login",
+  {
+    type: "LoginResponse",
+    args: {
+      email: stringArg(),
+      senha: nonNull(stringArg()),
+      codigo: stringArg(),
+    },
+    resolve: async (_, args, { prisma }) => {
+      try {
+        // Validação: pelo menos senha deve ser fornecida
+        if (!args.senha) {
+          throw new UserInputError('Senha é obrigatória');
+        }
 
-                        // Validação: ao menos um identificador (email ou codigo) deve ser fornecido
-                        if (!args.email && !args.codigo) {
-                            throw new UserInputError('Email ou código de acesso é obrigatório');
-                        }
+        // Validação: ao menos um identificador (email ou codigo) deve ser fornecido
+        if (!args.email && !args.codigo) {
+          throw new UserInputError('Email ou código de acesso é obrigatório');
+        }
 
-                        let usuario = null;
+        let usuario = null;
 
-                        // Priorizar email quando ambos estão presentes
-                        if (args.email) {
-                            usuario = await prisma.usuario.findFirst({
-                                where: {
-                                    email: args.email
-                                }
-                            });
-                        } else if (args.codigo) {
-                            usuario = await prisma.usuario.findFirst({
-                                where: {
-                                    cod_acesso: args.codigo
-                                }
-                            });
-                        }
-
-                        if (!usuario) {
-                            throw new AuthenticationError('Credenciais inválidas');
-                        }
-
-                        // Verificar se o usuário está ativo
-                        if (!usuario.ativo) {
-                            throw new AuthenticationError('Usuário inativo');
-                        }
-
-                        // Verificar se o usuário tem senha cadastrada
-                        if (!usuario.senha) {
-                            throw new AuthenticationError('Credenciais inválidas');
-                        }
-
-                        // Verificar a senha
-                        const senhaValida = await bcrypt.compare(args.senha, usuario.senha);
-                        if (!senhaValida) {
-                            throw new AuthenticationError('Credenciais inválidas');
-                        }
-
-                        // Gerar token JWT
-                        const token = jwt.sign(
-                            {
-                                id: usuario.id,
-                                email: usuario.email,
-                                nome: usuario.nome
-                            },
-                            process.env.JWT_SECRET || 'secret_key',
-                            { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-                        );
-
-                        return {
-                            token,
-                            usuario
-                        };
-                    } catch (error) {
-                        console.error('Erro no serviço ao fazer login:', error);
-                        throw error;
-                    }
-                }
+        // Priorizar email quando ambos estão presentes
+        if (args.email) {
+          usuario = await prisma.usuario.findFirst({
+            where: {
+              email: args.email
             }
-        )
+          });
+        } else if (args.codigo) {
+          usuario = await prisma.usuario.findFirst({
+            where: {
+              cod_acesso: args.codigo
+            }
+          });
+        }
+
+        if (!usuario) {
+          throw new AuthenticationError('Credenciais inválidas');
+        }
+
+        // Verificar se o usuário está ativo
+        if (!usuario.ativo) {
+          throw new AuthenticationError('Usuário inativo');
+        }
+
+        // Verificar se o usuário tem senha cadastrada
+        if (!usuario.senha) {
+          throw new AuthenticationError('Credenciais inválidas');
+        }
+
+        // Verificar a senha
+        const senhaValida = await bcrypt.compare(args.senha, usuario.senha);
+        if (!senhaValida) {
+          throw new AuthenticationError('Credenciais inválidas');
+        }
+
+        // Gerar token JWT
+        const token = jwt.sign(
+          {
+            id: usuario.id,
+            email: usuario.email,
+            nome: usuario.nome
+          },
+          process.env.JWT_SECRET || 'secret_key',
+          { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+        );
+
+        return {
+          token,
+          usuario
+        };
+      } catch (error) {
+        console.error('Erro no serviço ao fazer login:', error);
+        throw error;
+      }
+    }
+  }
+)
+
+t.field(
+  "softDeleteFertilizante",
+  {
+    type: "Fertilizante",
+    args: {
+      fertilizanteId: nonNull(intArg()),
+    },
+    resolve: async (_, args, { prisma }) => {
+      const fertilizante = await prisma.fertilizante.findUnique({
+        where: { id: args.fertilizanteId },
+        select: { id: true, deleted_at: true },
+      });
+
+      if (!fertilizante) {
+        throw new UserInputError("Fertilizante não encontrado");
+      }
+
+      if (fertilizante.deleted_at) {
+        throw new UserInputError("Fertilizante já deletado");
+      }
+
+      return await prisma.fertilizante.update({
+        where: { id: args.fertilizanteId },
+        data: { deleted_at: new Date().toISOString() },
+      });
+    }
+  }
+)
+
+t.field(
+  "softDeleteFertilizanteList",
+  {
+    type: "Int",
+    args: {
+      fertilizantesIds: list(nonNull(intArg())),
+    },
+    resolve: async (_, args, { prisma }) => {
+      if (!args.fertilizantesIds || args.fertilizantesIds.length === 0) {
+        return 0;
+      }
+
+      const uniqueIds = [...new Set(args.fertilizantesIds)];
+
+      const result = await prisma.fertilizante.updateMany({
+        where: {
+          id: { in: uniqueIds },
+          deleted_at: null,
+        },
+        data: { deleted_at: new Date().toISOString() },
+      });
+
+      return result.count;
+    }
+  }
+)
+
+t.field(
+  "updateFertilizante",
+  {
+    type: "Fertilizante",
+    args: {
+      fertilizanteId: nonNull(intArg()),
+      input: arg({ type: "UpdateFertilizanteInput" }),
+    },
+    resolve: async (_, args, { prisma }) => {
+      const fertilizante = await prisma.fertilizante.findUnique({
+        where: { id: args.fertilizanteId },
+        select: { id: true, deleted_at: true },
+      });
+
+      if (!fertilizante) {
+        throw new UserInputError("Fertilizante não encontrado");
+      }
+
+      if (fertilizante.deleted_at) {
+        throw new UserInputError("Fertilizante está deletado");
+      }
+
+      const data = {};
+      if (args.input?.nome !== undefined) data.nome = args.input.nome;
+      if (args.input?.c_eletrica !== undefined) data.c_eletrica = args.input.c_eletrica;
+      if (args.input?.compatibilidade !== undefined) data.compatibilidade = args.input.compatibilidade;
+      if (args.input?.solubilidade !== undefined) data.solubilidade = args.input.solubilidade;
+
+      return await prisma.fertilizante.update({
+        where: { id: args.fertilizanteId },
+        data,
+      });
+    }
+  }
+)
     }
 })
 
 const UpdateProtocoloInput = inputObjectType({
-    name: 'UpdateProtocoloInput',
-    definition(t) {
-        t.nonNull.int('id');
-        t.string('nome');
-        t.string('descricao');
-        t.string('tipo_cultura');
-        t.string('sistema_cultivo');
-        t.string('implantacao');
-        t.string('cultura');
-        t.string('acoes');
-    }
+  name: 'UpdateProtocoloInput',
+  definition(t) {
+    t.nonNull.int('id');
+    t.string('nome');
+    t.string('descricao');
+    t.string('tipo_cultura');
+    t.string('sistema_cultivo');
+    t.string('implantacao');
+    t.string('cultura');
+    t.string('acoes');
+  }
+})
+
+const UpdateFertilizanteInput = inputObjectType({
+  name: 'UpdateFertilizanteInput',
+  definition(t) {
+    t.string('nome');
+    t.string('c_eletrica');
+    t.int('compatibilidade');
+    t.float('solubilidade');
+  }
 })
 
 function addDays(date, days) {
@@ -1855,4 +2140,4 @@ function substractDays(date, days) {
     return newDate;
 }
 
-module.exports = Mutation
+module.exports = { Mutation, UpdateFertilizanteInput }

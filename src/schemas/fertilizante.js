@@ -9,6 +9,7 @@ const Fertilizante = objectType({
     t.model.compatibilidade()
     t.model.solubilidade()
     t.model.created_at()
+    t.model.deleted_at()
     t.model.fertilizantes_nutrientes()
     t.model.solucoes_fertilizantes_concentradas()
   }
