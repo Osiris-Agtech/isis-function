@@ -33,6 +33,10 @@ CHECK (
   ("origin" = 'CUSTOM'::"FertilizanteOrigin" AND "fk_contas_id" IS NOT NULL)
 );
 
+-- Compatibilidade com ambientes legados sem soft-delete
+ALTER TABLE "fertilizantes"
+ADD COLUMN IF NOT EXISTS "deleted_at" TIMESTAMP(6);
+
 -- CreateIndex
 CREATE INDEX "fertilizantes_origin_deleted_at_idx" ON "fertilizantes"("origin", "deleted_at");
 
