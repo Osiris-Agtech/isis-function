@@ -4,6 +4,96 @@ const { list, nonNull, intArg, arg } = require('@nexus/schema')
 const MetricasLotesService = require('../services/metricasLotesService')
 const MetricasAgendaService = require('../services/metricasAgendaService')
 
+class DomainError extends Error {
+  constructor(code, message) {
+    super(message)
+    this.name = 'DomainError'
+    this.extensions = { code }
+  }
+}
+
+class AuthenticationError extends Error {
+  constructor(message) {
+    super(message)
+    this.name = 'AuthenticationError'
+    this.extensions = { code: 'UNAUTHENTICATED' }
+  }
+}
+
+async function getAuthorizedContaIds(prisma, authUserId) {
+  if (!Number.isInteger(authUserId)) {
+    throw new AuthenticationError('Autenticação obrigatória para consultar fertilizantes por conta')
+  }
+
+  const vinculacoes = await prisma.conectaConta.findMany({
+    where: {
+      fk_usuarios_id: authUserId,
+      fk_contas_id: {
+        not: null,
+      },
+    },
+    select: {
+      fk_contas_id: true,
+    },
+  })
+
+  return [
+    ...new Set(
+      vinculacoes
+        .map((vinculo) => vinculo.fk_contas_id)
+        .filter(Number.isInteger)
+    ),
+  ]
+}
+
+async function assertContaInTenantScope(prisma, authUserId, contaId) {
+  if (!Number.isInteger(contaId)) {
+    throw new DomainError('VALIDATION_ERROR', 'contaId inválido')
+  }
+
+  const authorizedContaIds = await getAuthorizedContaIds(prisma, authUserId)
+  if (!authorizedContaIds.includes(contaId)) {
+    throw new DomainError('TENANT_SCOPE_VIOLATION', 'contaId fora do escopo do usuário autenticado')
+  }
+
+  return contaId
+}
+
+function buildFertilizanteTenantVisibilityWhere(authorizedContaIds) {
+  return {
+    OR: [
+      {
+        origin: 'SYSTEM',
+      },
+      {
+        origin: 'CUSTOM',
+        fk_contas_id: {
+          in: authorizedContaIds,
+        },
+      },
+    ],
+  }
+}
+
+function isFertilizanteVisibleForTenant(fertilizante, authorizedContaIds) {
+  return (
+    fertilizante.origin === 'SYSTEM' ||
+    (fertilizante.origin === 'CUSTOM' && authorizedContaIds.includes(fertilizante.fk_contas_id))
+  )
+}
+
+function buildSolucaoTenantScopeWhere(authorizedContaIds) {
+  return {
+    solucoes_contas: {
+      some: {
+        fk_contas_id: {
+          in: authorizedContaIds,
+        },
+      },
+    },
+  }
+}
+
 const Query = queryType({
   name: 'Query',
   definition(t) {
@@ -54,21 +144,122 @@ const Query = queryType({
       filtering: true,
       ordering: true,
       resolve: async (root, args, ctx, info, originalResolve) => {
-        const where = args.where || {}
-        if (!where.deleted_at) {
-          where.deleted_at = null
+        const authorizedContaIds = await getAuthorizedContaIds(ctx.prisma, ctx.authUserId)
+        const tenantVisibilityWhere = buildFertilizanteTenantVisibilityWhere(authorizedContaIds)
+
+        args.where = {
+          AND: [
+            args.where || {},
+            {
+              deleted_at: null,
+            },
+            tenantVisibilityWhere,
+          ],
         }
-        args.where = where
+
         return originalResolve(root, args, ctx, info)
+      },
+    })
+
+    t.list.field('fertilizantesCatalogo', {
+      type: 'Fertilizante',
+      args: {
+        contaId: nonNull(intArg()),
+      },
+      resolve: async (_, args, ctx) => {
+        const contaId = await assertContaInTenantScope(ctx.prisma, ctx.authUserId, args.contaId)
+
+        return ctx.prisma.fertilizante.findMany({
+          where: {
+            deleted_at: null,
+            OR: [
+              {
+                origin: 'SYSTEM',
+              },
+              {
+                origin: 'CUSTOM',
+                fk_contas_id: contaId,
+              },
+            ],
+          },
+          orderBy: {
+            nome: 'asc',
+          },
+        })
+      },
+    })
+
+    t.list.field('fertilizantesHistoricoSolucao', {
+      type: 'Fertilizante',
+      args: {
+        solucaoId: nonNull(intArg()),
+      },
+      resolve: async (_, args, ctx) => {
+        const authorizedContaIds = await getAuthorizedContaIds(ctx.prisma, ctx.authUserId)
+        const relacoes = await ctx.prisma.solucoes_Fertilizantes_Concentradas.findMany({
+          where: {
+            fk_solucoes_id: args.solucaoId,
+            solucao: {
+              solucoes_contas: {
+                some: {
+                  fk_contas_id: {
+                    in: authorizedContaIds,
+                  },
+                },
+              },
+            },
+          },
+          select: {
+            fk_fertilizantes_id: true,
+          },
+        })
+
+        const fertilizantesIds = [
+          ...new Set(
+            relacoes
+              .map((item) => item.fk_fertilizantes_id)
+              .filter((id) => id != null)
+          ),
+        ]
+
+        if (fertilizantesIds.length === 0) {
+          return []
+        }
+
+        return ctx.prisma.fertilizante.findMany({
+          where: {
+            id: {
+              in: fertilizantesIds,
+            },
+            OR: [
+              {
+                origin: 'SYSTEM',
+              },
+              {
+                origin: 'CUSTOM',
+                fk_contas_id: {
+                  in: authorizedContaIds,
+                },
+              },
+            ],
+          },
+        })
       },
     })
 
     t.crud.fertilizante({
       resolve: async (root, args, ctx, info, originalResolve) => {
+        const authorizedContaIds = await getAuthorizedContaIds(ctx.prisma, ctx.authUserId)
         const result = await originalResolve(root, args, ctx, info)
-        if (result?.deleted_at) {
+
+        if (!result || result.deleted_at) {
           return null
         }
+
+        if (!isFertilizanteVisibleForTenant(result, authorizedContaIds)) {
+          return null
+        }
+
         return result
       },
     })
@@ -115,9 +306,47 @@ const Query = queryType({
     // ### FAZER MANUALMENTE
     t.crud.sNutritivas({
       filtering: true,
-      ordering: true
+      ordering: true,
+      resolve: async (root, args, ctx, info, originalResolve) => {
+        const authorizedContaIds = await getAuthorizedContaIds(ctx.prisma, ctx.authUserId)
+        const tenantScopeWhere = buildSolucaoTenantScopeWhere(authorizedContaIds)
+
+        args.where = {
+          AND: [
+            args.where || {},
+            tenantScopeWhere,
+          ],
+        }
+
+        return originalResolve(root, args, ctx, info)
+      },
     })
-    t.crud.sNutritiva()
+    t.crud.sNutritiva({
+      resolve: async (root, args, ctx, info, originalResolve) => {
+        const authorizedContaIds = await getAuthorizedContaIds(ctx.prisma, ctx.authUserId)
+        const result = await originalResolve(root, args, ctx, info)
+
+        if (!result) {
+          return null
+        }
+
+        const scopedSolucao = await ctx.prisma.sNutritiva.findFirst({
+          where: {
+            id: result.id,
+            ...buildSolucaoTenantScopeWhere(authorizedContaIds),
+          },
+          select: {
+            id: true,
+          },
+        })
+
+        if (!scopedSolucao) {
+          throw new DomainError('TENANT_SCOPE_VIOLATION', 'Solução fora do escopo do usuário autenticado')
+        }
+
+        return result
+      },
+    })
 
     t.crud.notificacaos({
       filtering: true,

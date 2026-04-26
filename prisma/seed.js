@@ -172,13 +172,19 @@ async function main() {
 
   for (const fert of fertilizantesBase) {
     let fertilizante = await prisma.fertilizante.findFirst({
-      where: { nome: fert.nome },
+      where: {
+        nome: fert.nome,
+        origin: 'SYSTEM',
+      },
     });
 
     if (!fertilizante) {
       fertilizante = await prisma.fertilizante.create({
         data: {
           nome: fert.nome,
+          origin: 'SYSTEM',
+          fk_contas_id: null,
+          deleted_at: null,
           c_eletrica: null,
           compatibilidade: null,
           solubilidade: null,
@@ -186,6 +192,16 @@ async function main() {
       });
       console.log(`✓ Fertilizante criado: ${fert.nome}`);
     } else {
+      await prisma.fertilizante.update({
+        where: {
+          id: fertilizante.id,
+        },
+        data: {
+          origin: 'SYSTEM',
+          fk_contas_id: null,
+          deleted_at: null,
+        },
+      });
       console.log(`- Fertilizante já existe: ${fert.nome}`);
     }
 

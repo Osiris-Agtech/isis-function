@@ -20,6 +20,133 @@ class AuthenticationError extends Error {
     }
 }
 
+class DomainError extends Error {
+    constructor(code, message) {
+        super(message);
+        this.name = 'DomainError';
+        this.extensions = { code };
+    }
+}
+
+function normalizeName(name) {
+    if (typeof name !== 'string') {
+        return '';
+    }
+
+    return name.trim();
+}
+
+async function findNameConflict(prisma, contaId, normalizedName, excludeId) {
+    if (!normalizedName) {
+        return null;
+    }
+
+    const conflict = await prisma.$queryRaw`
+        SELECT id
+        FROM fertilizantes
+        WHERE origin = 'CUSTOM'::"FertilizanteOrigin"
+          AND fk_contas_id = ${contaId}
+          AND deleted_at IS NULL
+          AND LOWER(BTRIM(nome)) = LOWER(${normalizedName})
+          AND (${excludeId}::int IS NULL OR id <> ${excludeId})
+        LIMIT 1
+    `;
+
+    return conflict[0] ?? null;
+}
+
+function assertCanMutateFertilizante(fertilizante, contaId) {
+    if (!fertilizante) {
+        throw new DomainError('NOT_FOUND', 'Fertilizante não encontrado');
+    }
+
+    if (fertilizante.origin === 'SYSTEM') {
+        throw new DomainError('SEED_IMMUTABLE', 'Fertilizante de sistema é imutável');
+    }
+
+    if (fertilizante.fk_contas_id !== contaId) {
+        throw new DomainError('TENANT_SCOPE_VIOLATION', 'Fertilizante fora do escopo da conta');
+    }
+
+    if (fertilizante.deleted_at) {
+        throw new DomainError('VALIDATION_ERROR', 'Fertilizante já está deletado');
+    }
+}
+
+async function getAuthorizedContaIds(prisma, authUserId) {
+    if (!Number.isInteger(authUserId)) {
+        throw new AuthenticationError('Autenticação obrigatória para operar fertilizantes por conta');
+    }
+
+    const vinculacoes = await prisma.conectaConta.findMany({
+        where: {
+            fk_usuarios_id: authUserId,
+            fk_contas_id: {
+                not: null,
+            },
+        },
+        select: {
+            fk_contas_id: true,
+        },
+    });
+
+    return [
+        ...new Set(
+            vinculacoes
+                .map((vinculo) => vinculo.fk_contas_id)
+                .filter(Number.isInteger)
+        ),
+    ];
+}
+
+async function assertContaInTenantScope(prisma, authUserId, contaId) {
+    if (!Number.isInteger(contaId)) {
+        throw new DomainError('VALIDATION_ERROR', 'contaId inválido');
+    }
+
+    const authorizedContaIds = await getAuthorizedContaIds(prisma, authUserId);
+    if (!authorizedContaIds.includes(contaId)) {
+        throw new DomainError('TENANT_SCOPE_VIOLATION', 'contaId fora do escopo do usuário autenticado');
+    }
+
+    return contaId;
+}
+
+function isFertilizanteVisibleForTenant(fertilizante, authorizedContaIds) {
+    return (
+        fertilizante.origin === 'SYSTEM' ||
+        (fertilizante.origin === 'CUSTOM' && authorizedContaIds.includes(fertilizante.fk_contas_id))
+    );
+}
+
+async function assertSolucaoInTenantScope(prisma, solucaoId, authorizedContaIds) {
+    if (!Number.isInteger(solucaoId)) {
+        throw new DomainError('VALIDATION_ERROR', 'solucaoId inválido');
+    }
+
+    const solucao = await prisma.sNutritiva.findFirst({
+        where: {
+            id: solucaoId,
+            solucoes_contas: {
+                some: {
+                    fk_contas_id: {
+                        in: authorizedContaIds,
+                    },
+                },
+            },
+        },
+        select: {
+            id: true,
+        },
+    });
+
+    if (!solucao) {
+        throw new DomainError('TENANT_SCOPE_VIOLATION', 'Solução fora do escopo da conta');
+    }
+
+    return solucao.id;
+}
+
 const Mutation = mutationType({
     name: 'Mutation',
     definition(t) {
@@ -174,16 +301,20 @@ const Mutation = mutationType({
                     contaId: nonNull(intArg()),
                     solucaoId: intArg(),
                 },
-                resolve: async (_, args, { prisma }) => {
+                resolve: async (_, args, { prisma, authUserId }) => {
+                    const contaId = await assertContaInTenantScope(prisma, authUserId, args.contaId);
+                    const authorizedContaIds = await getAuthorizedContaIds(prisma, authUserId);
                     var data;
 
                     if(args.solucaoId != null) {
+                        await assertSolucaoInTenantScope(prisma, args.solucaoId, authorizedContaIds);
+
                         data = {
                             nome: args.reservatorioNome,
                             volume: args.reservatorioVolume,
                             conta: {
                                 connect: {
-                                    id: args.contaId
+                                    id: contaId
                                 }
                             },
                             solucao: {
@@ -460,8 +591,11 @@ t.field(
     args: {
       snutritivaId: nonNull(intArg()),
     },
-    resolve: async (_, args, { prisma }) => {
-      const snutritivaUpdate = await prisma.SNutritiva.update({
+    resolve: async (_, args, { prisma, authUserId }) => {
+      const authorizedContaIds = await getAuthorizedContaIds(prisma, authUserId);
+      await assertSolucaoInTenantScope(prisma, args.snutritivaId, authorizedContaIds);
+
+      const snutritivaUpdate = await prisma.sNutritiva.update({
         where: {
           id: args.snutritivaId,
         },
@@ -587,9 +721,13 @@ t.field(
     args: {
       snutritivaId: nonNull(intArg()),
     },
-    resolve: async (_, args, { prisma }) => {
+    resolve: async (_, args, { prisma, authUserId }) => {
+      const authorizedContaIds = await getAuthorizedContaIds(prisma, authUserId);
+
       return await prisma.$transaction(async (tx) => {
-        const snutritiva = await tx.SNutritiva.findUnique({
+        await assertSolucaoInTenantScope(tx, args.snutritivaId, authorizedContaIds);
+
+        const snutritiva = await tx.sNutritiva.findUnique({
           where: { id: args.snutritivaId },
           select: { id: true, deleted_at: true },
         });
@@ -616,7 +754,7 @@ t.field(
           data: { deleted_at: new Date().toISOString() },
         });
 
-        return await tx.SNutritiva.update({
+        return await tx.sNutritiva.update({
           where: { id: args.snutritivaId },
           data: { deleted_at: new Date().toISOString() },
         });
@@ -765,24 +903,56 @@ t.field(
                     solucaoId: nonNull(intArg()),
                     contaId: nonNull(intArg())
                 },
-                resolve: async (_, args, { prisma }) => {
-                    const snutritiva = await prisma.SNutritiva.findMany({
+                resolve: async (_, args, { prisma, authUserId }) => {
+                    const contaId = await assertContaInTenantScope(prisma, authUserId, args.contaId);
+                    const authorizedContaIds = await getAuthorizedContaIds(prisma, authUserId);
+                    await assertSolucaoInTenantScope(prisma, args.solucaoId, authorizedContaIds);
+
+                    const snutritiva = await prisma.sNutritiva.findMany({
                         where: {
                           id: args.solucaoId,
+                          solucoes_contas: {
+                            some: {
+                                fk_contas_id: {
+                                    in: authorizedContaIds,
+                                },
+                            },
+                          },
                         },
                         include: {
                             solucoes_fertilizantes_concentradas: true
                         }
                     });
 
+                    if (snutritiva.length === 0) {
+                        throw new DomainError('TENANT_SCOPE_VIOLATION', 'Solução fora do escopo da conta');
+                    }
+
                     var solucaoFertilizantes = [];
                     for (const object of snutritiva[0].solucoes_fertilizantes_concentradas) {
+                        const fertilizanteId = Number(object.fk_fertilizantes_id);
+                        const fertilizante = await prisma.fertilizante.findUnique({
+                            where: {
+                                id: fertilizanteId,
+                            },
+                            select: {
+                                id: true,
+                                origin: true,
+                                fk_contas_id: true,
+                                deleted_at: true,
+                            },
+                        });
+
+                        if (!fertilizante || fertilizante.deleted_at || !isFertilizanteVisibleForTenant(fertilizante, authorizedContaIds)) {
+                            throw new DomainError('TENANT_SCOPE_VIOLATION', 'Fertilizante da solução fora do escopo da conta');
+                        }
+
                         if(object.fk_concentradas_id != null) {
                             solucaoFertilizantes.push({
                                 quantidade: Number(object.quantidade),
                                 fertilizante: {
                                     connect: {
-                                        id: Number(object.fk_fertilizantes_id)
+                                        id: fertilizanteId
                                     }
                                 },
                                 concentrada: {
@@ -796,7 +966,7 @@ t.field(
                                 quantidade: Number(object.quantidade),
                                 fertilizante: {
                                     connect: {
-                                        id: Number(object.fk_fertilizantes_id)
+                                        id: fertilizanteId
                                     }
                                 },
                             });
@@ -812,7 +982,7 @@ t.field(
                                 conta_original: 1,
                                 conta: {
                                   connect: {
-                                    id: args.contaId
+                                    id: contaId
                                   }
                                 }
                               }
@@ -825,7 +995,7 @@ t.field(
                           }
                     };
 
-                    const novaSNutritiva = await prisma.SNutritiva.create({
+                    const novaSNutritiva = await prisma.sNutritiva.create({
                         data: data,
                         include: {
                             solucoes_fertilizantes_concentradas: true
@@ -1175,7 +1345,7 @@ t.field(
                     const solucoesIniciais = [12, 13, 14, 15, 16];
 
                     for (const solucaoId of solucoesIniciais) {
-                        const snutritiva = await prisma.SNutritiva.findMany({
+                        const snutritiva = await prisma.sNutritiva.findMany({
                             where: {
                               id: solucaoId,
                             },
@@ -1238,7 +1408,7 @@ t.field(
                             }
                         };
 
-                        const novaSNutritiva = await prisma.SNutritiva.create({
+                        const novaSNutritiva = await prisma.sNutritiva.create({
                             data: data,
                             include: {
                                 solucoes_fertilizantes_concentradas: true
@@ -1461,7 +1631,7 @@ t.field(
                     const solucoesIniciais = [12, 13, 14, 15, 16];
 
                     for (const solucaoId of solucoesIniciais) {
-                        const snutritiva = await prisma.SNutritiva.findMany({
+                        const snutritiva = await prisma.sNutritiva.findMany({
                             where: {
                               id: solucaoId,
                             },
@@ -1524,7 +1694,7 @@ t.field(
                             }
                         };
 
-                        const novaSNutritiva = await prisma.SNutritiva.create({
+                        const novaSNutritiva = await prisma.sNutritiva.create({
                             data: data,
                             include: {
                                 solucoes_fertilizantes_concentradas: true
@@ -1987,6 +2157,11 @@ t.field(
           throw new AuthenticationError('Credenciais inválidas');
         }
 
+        const jwtSecret = process.env.JWT_SECRET;
+        if (!jwtSecret) {
+          throw new AuthenticationError('Configuração de autenticação inválida: JWT_SECRET ausente');
+        }
+
         // Gerar token JWT
         const token = jwt.sign(
           {
@@ -1994,7 +2169,7 @@ t.field(
             email: usuario.email,
             nome: usuario.nome
           },
-          process.env.JWT_SECRET || 'secret_key',
+          jwtSecret,
           { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
         );
 
@@ -2011,25 +2186,56 @@ t.field(
 )
 
 t.field(
+  "createFertilizante",
+  {
+    type: "Fertilizante",
+    args: {
+      contaId: nonNull(intArg()),
+      input: nonNull(arg({ type: "CreateFertilizanteInput" })),
+    },
+    resolve: async (_, args, { prisma, authUserId }) => {
+      const contaId = await assertContaInTenantScope(prisma, authUserId, args.contaId);
+      const nomeNormalizado = normalizeName(args.input.nome);
+
+      if (!nomeNormalizado) {
+        throw new DomainError('VALIDATION_ERROR', 'Nome do fertilizante é obrigatório');
+      }
+
+      const conflict = await findNameConflict(prisma, contaId, nomeNormalizado, null);
+      if (conflict) {
+        throw new DomainError('NAME_ALREADY_EXISTS', 'Já existe fertilizante customizado ativo com esse nome na conta');
+      }
+
+      return prisma.fertilizante.create({
+        data: {
+          nome: nomeNormalizado,
+          origin: 'CUSTOM',
+          fk_contas_id: contaId,
+          c_eletrica: args.input?.c_eletrica,
+          compatibilidade: args.input?.compatibilidade,
+          solubilidade: args.input?.solubilidade,
+        },
+      });
+    }
+  }
+)
+
+t.field(
   "softDeleteFertilizante",
   {
     type: "Fertilizante",
     args: {
       fertilizanteId: nonNull(intArg()),
+      contaId: nonNull(intArg()),
     },
-    resolve: async (_, args, { prisma }) => {
+    resolve: async (_, args, { prisma, authUserId }) => {
+      const contaId = await assertContaInTenantScope(prisma, authUserId, args.contaId);
       const fertilizante = await prisma.fertilizante.findUnique({
         where: { id: args.fertilizanteId },
-        select: { id: true, deleted_at: true },
+        select: { id: true, deleted_at: true, origin: true, fk_contas_id: true },
       });
 
-      if (!fertilizante) {
-        throw new UserInputError("Fertilizante não encontrado");
-      }
-
-      if (fertilizante.deleted_at) {
-        throw new UserInputError("Fertilizante já deletado");
-      }
+      assertCanMutateFertilizante(fertilizante, contaId);
 
       return await prisma.fertilizante.update({
         where: { id: args.fertilizanteId },
@@ -2044,18 +2250,40 @@ t.field(
   {
     type: "Int",
     args: {
+      contaId: nonNull(intArg()),
       fertilizantesIds: list(nonNull(intArg())),
     },
-    resolve: async (_, args, { prisma }) => {
+    resolve: async (_, args, { prisma, authUserId }) => {
+      const contaId = await assertContaInTenantScope(prisma, authUserId, args.contaId);
       if (!args.fertilizantesIds || args.fertilizantesIds.length === 0) {
         return 0;
       }
 
       const uniqueIds = [...new Set(args.fertilizantesIds)];
 
-      const result = await prisma.fertilizante.updateMany({
+      const fertilizantes = await prisma.fertilizante.findMany({
         where: {
           id: { in: uniqueIds },
+        },
+        select: {
+          id: true,
+          deleted_at: true,
+          origin: true,
+          fk_contas_id: true,
+        },
+      });
+
+      if (fertilizantes.length !== uniqueIds.length) {
+        throw new DomainError('NOT_FOUND', 'Um ou mais fertilizantes não foram encontrados');
+      }
+
+      for (const fertilizante of fertilizantes) {
+        assertCanMutateFertilizante(fertilizante, contaId);
+      }
+
+      const result = await prisma.fertilizante.updateMany({
+        where: {
+          id: { in: fertilizantes.map((item) => item.id) },
           deleted_at: null,
         },
         data: { deleted_at: new Date().toISOString() },
@@ -2071,25 +2299,42 @@ t.field(
   {
     type: "Fertilizante",
     args: {
+      contaId: nonNull(intArg()),
       fertilizanteId: nonNull(intArg()),
       input: arg({ type: "UpdateFertilizanteInput" }),
     },
-    resolve: async (_, args, { prisma }) => {
+    resolve: async (_, args, { prisma, authUserId }) => {
+      const contaId = await assertContaInTenantScope(prisma, authUserId, args.contaId);
       const fertilizante = await prisma.fertilizante.findUnique({
         where: { id: args.fertilizanteId },
-        select: { id: true, deleted_at: true },
+        select: { id: true, nome: true, deleted_at: true, origin: true, fk_contas_id: true },
       });
 
-      if (!fertilizante) {
-        throw new UserInputError("Fertilizante não encontrado");
-      }
-
-      if (fertilizante.deleted_at) {
-        throw new UserInputError("Fertilizante está deletado");
-      }
+      assertCanMutateFertilizante(fertilizante, contaId);
 
       const data = {};
-      if (args.input?.nome !== undefined) data.nome = args.input.nome;
+      if (args.input?.nome !== undefined) {
+        const nomeNormalizado = normalizeName(args.input.nome);
+        if (!nomeNormalizado) {
+          throw new DomainError('VALIDATION_ERROR', 'Nome do fertilizante é obrigatório');
+        }
+
+        const nomeAtualNormalizado = normalizeName(fertilizante.nome || '');
+        if (nomeAtualNormalizado.toLowerCase() !== nomeNormalizado.toLowerCase()) {
+          const conflict = await findNameConflict(
+            prisma,
+            contaId,
+            nomeNormalizado,
+            args.fertilizanteId
+          );
+
+          if (conflict) {
+            throw new DomainError('NAME_ALREADY_EXISTS', 'Já existe fertilizante customizado ativo com esse nome na conta');
+          }
+        }
+
+        data.nome = nomeNormalizado;
+      }
       if (args.input?.c_eletrica !== undefined) data.c_eletrica = args.input.c_eletrica;
       if (args.input?.compatibilidade !== undefined) data.compatibilidade = args.input.compatibilidade;
       if (args.input?.solubilidade !== undefined) data.solubilidade = args.input.solubilidade;
@@ -2118,6 +2363,16 @@ const UpdateProtocoloInput = inputObjectType({
   }
 })
 
+const CreateFertilizanteInput = inputObjectType({
+  name: 'CreateFertilizanteInput',
+  definition(t) {
+    t.nonNull.string('nome');
+    t.string('c_eletrica');
+    t.int('compatibilidade');
+    t.float('solubilidade');
+  }
+})
+
 const UpdateFertilizanteInput = inputObjectType({
   name: 'UpdateFertilizanteInput',
   definition(t) {
@@ -2140,4 +2395,4 @@ function substractDays(date, days) {
     return newDate;
 }
 
-module.exports = { Mutation, UpdateFertilizanteInput }
+module.exports = { Mutation, UpdateFertilizanteInput, CreateFertilizanteInput }

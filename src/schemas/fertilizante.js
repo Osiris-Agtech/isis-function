@@ -5,6 +5,7 @@ const Fertilizante = objectType({
   definition(t) {
     t.model.id()
     t.model.nome()
+    t.model.origin()
     t.model.c_eletrica()
     t.model.compatibilidade()
     t.model.solubilidade()

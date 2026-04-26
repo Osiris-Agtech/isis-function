@@ -8,6 +8,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum FertilizanteOrigin {
+  SYSTEM
+  CUSTOM
+}
+
 model Area {
   id                 Int          @id @default(autoincrement())
   nome               String?      @db.VarChar
@@ -83,6 +88,7 @@ model Conta {
   atividades       Atividade[]
   culturas         Cultura[]
   fases            Fase[]
+  fertilizantes    Fertilizante[]
   localizacoes     Localizacao[]
   lotes_atividades Lotes_Atividades[]
   protocolos       Protocolo[]
@@ -110,15 +116,20 @@ model Cultura {
 model Fertilizante {
   id              Int           @id @default(autoincrement())
   nome            String?       @db.VarChar
+  origin          FertilizanteOrigin
+  fk_contas_id    Int?
   c_eletrica      Decimal?      @db.Decimal
   compatibilidade Int?
   solubilidade    Decimal?      @db.Decimal
   created_at      DateTime?     @default(now()) @db.Timestamp(6)
   deleted_at      DateTime?     @db.Timestamp(6)
+  conta           Conta?        @relation(fields: [fk_contas_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_fertilizantes_contas_1")
   fertilizantes_nutrientes             Fertilizantes_Nutrientes[]
   solucoes_fertilizantes_concentradas  Solucoes_Fertilizantes_Concentradas[]
 
   @@index([deleted_at])
+  @@index([origin, deleted_at])
+  @@index([fk_contas_id, deleted_at])
   @@map("fertilizantes")
 }
 
