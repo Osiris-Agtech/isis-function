@@ -2276,12 +2276,14 @@ t.field(
             compatibilidade: args.input?.compatibilidade,
             solubilidade: args.input?.solubilidade,
             fertilizantes_nutrientes: {
-              createMany: {
-                data: nutrientes.map((item) => ({
-                  fk_nutrientes_id: item.nutrienteId,
-                  teor_nutriente: item.teorNutriente,
-                })),
-              },
+              create: nutrientes.map((item) => ({
+                nutriente: {
+                  connect: {
+                    id: item.nutrienteId,
+                  },
+                },
+                teor_nutriente: item.teorNutriente,
+              })),
             },
           },
         });
@@ -2434,13 +2436,23 @@ t.field(
             },
           });
 
-          await tx.fertilizantes_Nutrientes.createMany({
-            data: nutrientes.map((item) => ({
-              fk_fertilizantes_id: args.fertilizanteId,
-              fk_nutrientes_id: item.nutrienteId,
-              teor_nutriente: item.teorNutriente,
-            })),
-          });
+          for (const item of nutrientes) {
+            await tx.fertilizantes_Nutrientes.create({
+              data: {
+                fertilizante: {
+                  connect: {
+                    id: args.fertilizanteId,
+                  },
+                },
+                nutriente: {
+                  connect: {
+                    id: item.nutrienteId,
+                  },
+                },
+                teor_nutriente: item.teorNutriente,
+              },
+            });
+          }
         }
 
         return tx.fertilizante.findUnique({
