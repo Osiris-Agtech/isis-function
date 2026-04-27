@@ -2482,8 +2482,8 @@ const CreateFertilizanteInput = inputObjectType({
     t.string('c_eletrica');
     t.int('compatibilidade');
     t.float('solubilidade');
-    t.nonNull.field('nutrientes', {
-      type: nonNull(list(nonNull('FertilizanteNutrienteInput'))),
+    t.nonNull.list.nonNull.field('nutrientes', {
+      type: 'FertilizanteNutrienteInput',
     });
   }
 })
@@ -2495,8 +2495,8 @@ const UpdateFertilizanteInput = inputObjectType({
     t.string('c_eletrica');
     t.int('compatibilidade');
     t.float('solubilidade');
-    t.field('nutrientes', {
-      type: list(nonNull('FertilizanteNutrienteInput')),
+    t.list.nonNull.field('nutrientes', {
+      type: 'FertilizanteNutrienteInput',
     });
   }
 })

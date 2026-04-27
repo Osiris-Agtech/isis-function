@@ -1036,6 +1036,12 @@ input ContaCreateNestedOneWithoutFasesInput {
   create: ContaCreateWithoutFasesInput
 }
 
+input ContaCreateNestedOneWithoutFertilizantesInput {
+  connect: ContaWhereUniqueInput
+  connectOrCreate: ContaCreateOrConnectWithoutFertilizantesInput
+  create: ContaCreateWithoutFertilizantesInput
+}
+
 input ContaCreateNestedOneWithoutLocalizacoesInput {
   connect: ContaWhereUniqueInput
   connectOrCreate: ContaCreateOrConnectWithoutLocalizacoesInput
@@ -1097,6 +1103,11 @@ input ContaCreateOrConnectWithoutFasesInput {
   where: ContaWhereUniqueInput!
 }
 
+input ContaCreateOrConnectWithoutFertilizantesInput {
+  create: ContaCreateWithoutFertilizantesInput!
+  where: ContaWhereUniqueInput!
+}
+
 input ContaCreateOrConnectWithoutLocalizacoesInput {
   create: ContaCreateWithoutLocalizacoesInput!
   where: ContaWhereUniqueInput!
@@ -1135,6 +1146,7 @@ input ContaCreateWithoutAgendasInput {
   culturas: CulturaCreateNestedManyWithoutContaInput
   deleted_at: DateTime
   fases: FaseCreateNestedManyWithoutContaInput
+  fertilizantes: FertilizanteCreateNestedManyWithoutContaInput
   imagem: String
   localizacoes: LocalizacaoCreateNestedManyWithoutContaInput
   lotes_atividades: Lotes_AtividadesCreateNestedManyWithoutContaInput
@@ -1154,6 +1166,7 @@ input ContaCreateWithoutAreasInput {
   culturas: CulturaCreateNestedManyWithoutContaInput
   deleted_at: DateTime
   fases: FaseCreateNestedManyWithoutContaInput
+  fertilizantes: FertilizanteCreateNestedManyWithoutContaInput
   imagem: String
   localizacoes: LocalizacaoCreateNestedManyWithoutContaInput
   lotes_atividades: Lotes_AtividadesCreateNestedManyWithoutContaInput
@@ -1173,6 +1186,7 @@ input ContaCreateWithoutAtividadesInput {
   culturas: CulturaCreateNestedManyWithoutContaInput
   deleted_at: DateTime
   fases: FaseCreateNestedManyWithoutContaInput
+  fertilizantes: FertilizanteCreateNestedManyWithoutContaInput
   imagem: String
   localizacoes: LocalizacaoCreateNestedManyWithoutContaInput
   lotes_atividades: Lotes_AtividadesCreateNestedManyWithoutContaInput
@@ -1192,6 +1206,7 @@ input ContaCreateWithoutCulturasInput {
   created_at: DateTime
   deleted_at: DateTime
   fases: FaseCreateNestedManyWithoutContaInput
+  fertilizantes: FertilizanteCreateNestedManyWithoutContaInput
   imagem: String
   localizacoes: LocalizacaoCreateNestedManyWithoutContaInput
   lotes_atividades: Lotes_AtividadesCreateNestedManyWithoutContaInput
@@ -1211,6 +1226,27 @@ input ContaCreateWithoutFasesInput {
   created_at: DateTime
   culturas: CulturaCreateNestedManyWithoutContaInput
   deleted_at: DateTime
+  fertilizantes: FertilizanteCreateNestedManyWithoutContaInput
+  imagem: String
+  localizacoes: LocalizacaoCreateNestedManyWithoutContaInput
+  lotes_atividades: Lotes_AtividadesCreateNestedManyWithoutContaInput
+  nivel: String
+  nome: String
+  protocolos: ProtocoloCreateNestedManyWithoutContaInput
+  reservatorios: ReservatorioCreateNestedManyWithoutContaInput
+  solucoes: Solucoes_ContasCreateNestedManyWithoutContaInput
+  usuarios: ConectaContaCreateNestedManyWithoutContaInput
+}
+
+input ContaCreateWithoutFertilizantesInput {
+  agendas: AgendaCreateNestedManyWithoutContaInput
+  areas: AreaCreateNestedManyWithoutContaInput
+  atividades: AtividadeCreateNestedManyWithoutContaInput
+  cnpj: String
+  created_at: DateTime
+  culturas: CulturaCreateNestedManyWithoutContaInput
+  deleted_at: DateTime
+  fases: FaseCreateNestedManyWithoutContaInput
   imagem: String
   localizacoes: LocalizacaoCreateNestedManyWithoutContaInput
   lotes_atividades: Lotes_AtividadesCreateNestedManyWithoutContaInput
@@ -1231,6 +1267,7 @@ input ContaCreateWithoutLocalizacoesInput {
   culturas: CulturaCreateNestedManyWithoutContaInput
   deleted_at: DateTime
   fases: FaseCreateNestedManyWithoutContaInput
+  fertilizantes: FertilizanteCreateNestedManyWithoutContaInput
   imagem: String
   lotes_atividades: Lotes_AtividadesCreateNestedManyWithoutContaInput
   nivel: String
@@ -1250,6 +1287,7 @@ input ContaCreateWithoutLotes_atividadesInput {
   culturas: CulturaCreateNestedManyWithoutContaInput
   deleted_at: DateTime
   fases: FaseCreateNestedManyWithoutContaInput
+  fertilizantes: FertilizanteCreateNestedManyWithoutContaInput
   imagem: String
   localizacoes: LocalizacaoCreateNestedManyWithoutContaInput
   nivel: String
@@ -1269,6 +1307,7 @@ input ContaCreateWithoutProtocolosInput {
   culturas: CulturaCreateNestedManyWithoutContaInput
   deleted_at: DateTime
   fases: FaseCreateNestedManyWithoutContaInput
+  fertilizantes: FertilizanteCreateNestedManyWithoutContaInput
   imagem: String
   localizacoes: LocalizacaoCreateNestedManyWithoutContaInput
   lotes_atividades: Lotes_AtividadesCreateNestedManyWithoutContaInput
@@ -1288,6 +1327,7 @@ input ContaCreateWithoutReservatoriosInput {
   culturas: CulturaCreateNestedManyWithoutContaInput
   deleted_at: DateTime
   fases: FaseCreateNestedManyWithoutContaInput
+  fertilizantes: FertilizanteCreateNestedManyWithoutContaInput
   imagem: String
   localizacoes: LocalizacaoCreateNestedManyWithoutContaInput
   lotes_atividades: Lotes_AtividadesCreateNestedManyWithoutContaInput
@@ -1307,6 +1347,7 @@ input ContaCreateWithoutSolucoesInput {
   culturas: CulturaCreateNestedManyWithoutContaInput
   deleted_at: DateTime
   fases: FaseCreateNestedManyWithoutContaInput
+  fertilizantes: FertilizanteCreateNestedManyWithoutContaInput
   imagem: String
   localizacoes: LocalizacaoCreateNestedManyWithoutContaInput
   lotes_atividades: Lotes_AtividadesCreateNestedManyWithoutContaInput
@@ -1326,6 +1367,7 @@ input ContaCreateWithoutUsuariosInput {
   culturas: CulturaCreateNestedManyWithoutContaInput
   deleted_at: DateTime
   fases: FaseCreateNestedManyWithoutContaInput
+  fertilizantes: FertilizanteCreateNestedManyWithoutContaInput
   imagem: String
   localizacoes: LocalizacaoCreateNestedManyWithoutContaInput
   lotes_atividades: Lotes_AtividadesCreateNestedManyWithoutContaInput
@@ -1345,6 +1387,7 @@ input ContaOrderByWithRelationInput {
   culturas: CulturaOrderByRelationAggregateInput
   deleted_at: SortOrder
   fases: FaseOrderByRelationAggregateInput
+  fertilizantes: FertilizanteOrderByRelationAggregateInput
   id: SortOrder
   imagem: SortOrder
   localizacoes: LocalizacaoOrderByRelationAggregateInput
@@ -1369,6 +1412,7 @@ input ContaWhereInput {
   culturas: CulturaListRelationFilter
   deleted_at: DateTimeNullableFilter
   fases: FaseListRelationFilter
+  fertilizantes: FertilizanteListRelationFilter
   id: IntFilter
   imagem: StringNullableFilter
   localizacoes: LocalizacaoListRelationFilter
@@ -1383,6 +1427,14 @@ input ContaWhereInput {
 
 input ContaWhereUniqueInput {
   id: Int
+}
+
+input CreateFertilizanteInput {
+  c_eletrica: String
+  compatibilidade: Int
+  nome: String!
+  nutrientes: [FertilizanteNutrienteInput!]!
+  solubilidade: Float
 }
 
 type Cultura {
@@ -1576,6 +1628,13 @@ type DesempenhoUsuarioRanking {
   usuarioNome: String
 }
 
+input EnumFertilizanteOriginFilter {
+  equals: FertilizanteOrigin
+  in: [FertilizanteOrigin!]
+  not: NestedEnumFertilizanteOriginFilter
+  notIn: [FertilizanteOrigin!]
+}
+
 type Fase {
   acaos(after: AcaoWhereUniqueInput, before: AcaoWhereUniqueInput, first: Int, last: Int): [Acao!]!
   conta: Conta
@@ -1704,11 +1763,36 @@ type Fertilizante {
   c_eletrica: Decimal
   compatibilidade: Int
   created_at: DateTime
+  deleted_at: DateTime
   fertilizantes_nutrientes(after: Fertilizantes_NutrientesWhereUniqueInput, before: Fertilizantes_NutrientesWhereUniqueInput, first: Int, last: Int): [Fertilizantes_Nutrientes!]!
   id: Int!
   nome: String
+  origin: FertilizanteOrigin!
   solubilidade: Decimal
   solucoes_fertilizantes_concentradas(after: Solucoes_Fertilizantes_ConcentradasWhereUniqueInput, before: Solucoes_Fertilizantes_ConcentradasWhereUniqueInput, first: Int, last: Int): [Solucoes_Fertilizantes_Concentradas!]!
+}
+
+input FertilizanteCreateManyContaInput {
+  c_eletrica: Decimal
+  compatibilidade: Int
+  created_at: DateTime
+  deleted_at: DateTime
+  id: Int
+  nome: String
+  origin: FertilizanteOrigin!
+  solubilidade: Decimal
+}
+
+input FertilizanteCreateManyContaInputEnvelope {
+  data: [FertilizanteCreateManyContaInput!]
+  skipDuplicates: Boolean
+}
+
+input FertilizanteCreateNestedManyWithoutContaInput {
+  connect: [FertilizanteWhereUniqueInput!]
+  connectOrCreate: [FertilizanteCreateOrConnectWithoutContaInput!]
+  create: [FertilizanteCreateWithoutContaInput!]
+  createMany: FertilizanteCreateManyContaInputEnvelope
 }
 
 input FertilizanteCreateNestedOneWithoutSolucoes_fertilizantes_concentradasInput {
@@ -1717,29 +1801,73 @@ input FertilizanteCreateNestedOneWithoutSolucoes_fertilizantes_concentradasInput
   create: FertilizanteCreateWithoutSolucoes_fertilizantes_concentradasInput
 }
 
+input FertilizanteCreateOrConnectWithoutContaInput {
+  create: FertilizanteCreateWithoutContaInput!
+  where: FertilizanteWhereUniqueInput!
+}
+
 input FertilizanteCreateOrConnectWithoutSolucoes_fertilizantes_concentradasInput {
   create: FertilizanteCreateWithoutSolucoes_fertilizantes_concentradasInput!
   where: FertilizanteWhereUniqueInput!
 }
 
-input FertilizanteCreateWithoutSolucoes_fertilizantes_concentradasInput {
+input FertilizanteCreateWithoutContaInput {
   c_eletrica: Decimal
   compatibilidade: Int
   created_at: DateTime
+  deleted_at: DateTime
   fertilizantes_nutrientes: Fertilizantes_NutrientesCreateNestedManyWithoutFertilizanteInput
   nome: String
+  origin: FertilizanteOrigin!
   solubilidade: Decimal
+  solucoes_fertilizantes_concentradas: Solucoes_Fertilizantes_ConcentradasCreateNestedManyWithoutFertilizanteInput
+}
+
+input FertilizanteCreateWithoutSolucoes_fertilizantes_concentradasInput {
+  c_eletrica: Decimal
+  compatibilidade: Int
+  conta: ContaCreateNestedOneWithoutFertilizantesInput
+  created_at: DateTime
+  deleted_at: DateTime
+  fertilizantes_nutrientes: Fertilizantes_NutrientesCreateNestedManyWithoutFertilizanteInput
+  nome: String
+  origin: FertilizanteOrigin!
+  solubilidade: Decimal
+}
+
+input FertilizanteListRelationFilter {
+  every: FertilizanteWhereInput
+  none: FertilizanteWhereInput
+  some: FertilizanteWhereInput
+}
+
+input FertilizanteNutrienteInput {
+  nutrienteId: Int!
+  teorNutriente: Float!
+}
+
+input FertilizanteOrderByRelationAggregateInput {
+  _count: SortOrder
 }
 
 input FertilizanteOrderByWithRelationInput {
   c_eletrica: SortOrder
   compatibilidade: SortOrder
+  conta: ContaOrderByWithRelationInput
   created_at: SortOrder
+  deleted_at: SortOrder
   fertilizantes_nutrientes: Fertilizantes_NutrientesOrderByRelationAggregateInput
+  fk_contas_id: SortOrder
   id: SortOrder
   nome: SortOrder
+  origin: SortOrder
   solubilidade: SortOrder
   solucoes_fertilizantes_concentradas: Solucoes_Fertilizantes_ConcentradasOrderByRelationAggregateInput
+}
+
+enum FertilizanteOrigin {
+  CUSTOM
+  SYSTEM
 }
 
 input FertilizanteWhereInput {
@@ -1748,10 +1876,14 @@ input FertilizanteWhereInput {
   OR: [FertilizanteWhereInput!]
   c_eletrica: DecimalNullableFilter
   compatibilidade: IntNullableFilter
+  conta: ContaWhereInput
   created_at: DateTimeNullableFilter
+  deleted_at: DateTimeNullableFilter
   fertilizantes_nutrientes: Fertilizantes_NutrientesListRelationFilter
+  fk_contas_id: IntNullableFilter
   id: IntFilter
   nome: StringNullableFilter
+  origin: EnumFertilizanteOriginFilter
   solubilidade: DecimalNullableFilter
   solucoes_fertilizantes_concentradas: Solucoes_Fertilizantes_ConcentradasListRelationFilter
 }
@@ -2755,6 +2887,7 @@ input Lotes_AtividadesWhereUniqueInput {
 }
 
 type Mutation {
+  createFertilizante(contaId: Int!, input: CreateFertilizanteInput!): Fertilizante
   createOneAgenda(data: AgendaCreateInput!): Agenda!
   createOneArea(data: AreaCreateInput!): Area!
   createOneAtividade(data: AtividadeCreateInput!): Atividade!
@@ -2800,12 +2933,19 @@ type Mutation {
   softDeleteAgenda(agendaId: Int!): Agenda
   softDeleteAgendaList(agendasId: [Int!]): Int
   softDeleteArea(areaId: Int!): Area
+  softDeleteAreaCascade(areaId: Int!): Area
   softDeleteConta(contaId: Int!): Conta
   softDeleteCultura(culturaId: Int!): Cultura
+  softDeleteFertilizante(contaId: Int!, fertilizanteId: Int!): Fertilizante
+  softDeleteFertilizanteList(contaId: Int!, fertilizantesIds: [Int!]): Int
   softDeleteLote(loteId: Int!): Lote
+  softDeleteProtocoloCascade(protocoloId: Int!): Protocolo
   softDeleteReservatorio(reservatorioId: Int!): Reservatorio
+  softDeleteReservatorioCascade(reservatorioId: Int!): Reservatorio
   softDeleteSNutritiva(snutritivaId: Int!): SNutritiva
+  softDeleteSNutritivaCascade(snutritivaId: Int!): SNutritiva
   softDeleteSetor(setorId: Int!): Setor
+  softDeleteSetorCascade(setorId: Int!): Setor
   updateAgenda(
     agendaId: Int!
 
@@ -2816,6 +2956,7 @@ type Mutation {
     usuarioId: Int
   ): Agenda
   updateArea(areaDescricao: String!, areaId: Int!, areaNome: String!, areaTipo: String!, contaId: Int!, localizacaoId: Int!): Area
+  updateFertilizante(contaId: Int!, fertilizanteId: Int!, input: UpdateFertilizanteInput): Fertilizante
   updateLote(
     bandeijaSemeadas: Int
 
@@ -2876,6 +3017,13 @@ input NestedDecimalNullableFilter {
   lte: Decimal
   not: NestedDecimalNullableFilter
   notIn: [Decimal!]
+}
+
+input NestedEnumFertilizanteOriginFilter {
+  equals: FertilizanteOrigin
+  in: [FertilizanteOrigin!]
+  not: NestedEnumFertilizanteOriginFilter
+  notIn: [FertilizanteOrigin!]
 }
 
 input NestedIntFilter {
@@ -3433,6 +3581,8 @@ type Query {
   fases(after: FaseWhereUniqueInput, before: FaseWhereUniqueInput, first: Int, last: Int, orderBy: [FaseOrderByWithRelationInput!], where: FaseWhereInput): [Fase!]!
   fertilizante(where: FertilizanteWhereUniqueInput!): Fertilizante
   fertilizantes(after: FertilizanteWhereUniqueInput, before: FertilizanteWhereUniqueInput, first: Int, last: Int, orderBy: [FertilizanteOrderByWithRelationInput!], where: FertilizanteWhereInput): [Fertilizante!]!
+  fertilizantesCatalogo(contaId: Int!): [Fertilizante]
+  fertilizantesHistoricoSolucao(solucaoId: Int!): [Fertilizante]
   homeDashboard(contaId: Int!): HomeDashboard
   localizacao(where: LocalizacaoWhereUniqueInput!): Localizacao
   localizacaos(after: LocalizacaoWhereUniqueInput, before: LocalizacaoWhereUniqueInput, first: Int, last: Int, orderBy: [LocalizacaoOrderByWithRelationInput!], where: LocalizacaoWhereInput): [Localizacao!]!
@@ -4090,6 +4240,18 @@ input Solucoes_Fertilizantes_ConcentradasCreateManyConcentradaInputEnvelope {
   skipDuplicates: Boolean
 }
 
+input Solucoes_Fertilizantes_ConcentradasCreateManyFertilizanteInput {
+  fk_concentradas_id: Int
+  fk_solucoes_id: Int
+  id: Int
+  quantidade: Decimal
+}
+
+input Solucoes_Fertilizantes_ConcentradasCreateManyFertilizanteInputEnvelope {
+  data: [Solucoes_Fertilizantes_ConcentradasCreateManyFertilizanteInput!]
+  skipDuplicates: Boolean
+}
+
 input Solucoes_Fertilizantes_ConcentradasCreateManySolucaoInput {
   fk_concentradas_id: Int
   fk_fertilizantes_id: Int
@@ -4109,6 +4271,13 @@ input Solucoes_Fertilizantes_ConcentradasCreateNestedManyWithoutConcentradaInput
   createMany: Solucoes_Fertilizantes_ConcentradasCreateManyConcentradaInputEnvelope
 }
 
+input Solucoes_Fertilizantes_ConcentradasCreateNestedManyWithoutFertilizanteInput {
+  connect: [Solucoes_Fertilizantes_ConcentradasWhereUniqueInput!]
+  connectOrCreate: [Solucoes_Fertilizantes_ConcentradasCreateOrConnectWithoutFertilizanteInput!]
+  create: [Solucoes_Fertilizantes_ConcentradasCreateWithoutFertilizanteInput!]
+  createMany: Solucoes_Fertilizantes_ConcentradasCreateManyFertilizanteInputEnvelope
+}
+
 input Solucoes_Fertilizantes_ConcentradasCreateNestedManyWithoutSolucaoInput {
   connect: [Solucoes_Fertilizantes_ConcentradasWhereUniqueInput!]
   connectOrCreate: [Solucoes_Fertilizantes_ConcentradasCreateOrConnectWithoutSolucaoInput!]
@@ -4121,6 +4290,11 @@ input Solucoes_Fertilizantes_ConcentradasCreateOrConnectWithoutConcentradaInput 
   where: Solucoes_Fertilizantes_ConcentradasWhereUniqueInput!
 }
 
+input Solucoes_Fertilizantes_ConcentradasCreateOrConnectWithoutFertilizanteInput {
+  create: Solucoes_Fertilizantes_ConcentradasCreateWithoutFertilizanteInput!
+  where: Solucoes_Fertilizantes_ConcentradasWhereUniqueInput!
+}
+
 input Solucoes_Fertilizantes_ConcentradasCreateOrConnectWithoutSolucaoInput {
   create: Solucoes_Fertilizantes_ConcentradasCreateWithoutSolucaoInput!
   where: Solucoes_Fertilizantes_ConcentradasWhereUniqueInput!
@@ -4128,6 +4302,12 @@ input Solucoes_Fertilizantes_ConcentradasCreateOrConnectWithoutSolucaoInput {
 
 input Solucoes_Fertilizantes_ConcentradasCreateWithoutConcentradaInput {
   fertilizante: FertilizanteCreateNestedOneWithoutSolucoes_fertilizantes_concentradasInput
+  quantidade: Decimal
+  solucao: SNutritivaCreateNestedOneWithoutSolucoes_fertilizantes_concentradasInput
+}
+
+input Solucoes_Fertilizantes_ConcentradasCreateWithoutFertilizanteInput {
+  concentrada: ConcentradaCreateNestedOneWithoutSolucoes_fertilizantes_concentradasInput
   quantidade: Decimal
   solucao: SNutritivaCreateNestedOneWithoutSolucoes_fertilizantes_concentradasInput
 }
@@ -4199,6 +4379,14 @@ input StringNullableFilter {
   not: NestedStringNullableFilter
   notIn: [String!]
   startsWith: String
+}
+
+input UpdateFertilizanteInput {
+  c_eletrica: String
+  compatibilidade: Int
+  nome: String
+  nutrientes: [FertilizanteNutrienteInput!]
+  solubilidade: Float
 }
 
 type Usuario {
