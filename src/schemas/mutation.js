@@ -36,6 +36,63 @@ function normalizeName(name) {
     return name.trim();
 }
 
+function normalizeFertilizanteNutrientesInput(nutrientes, required) {
+    if (nutrientes == null) {
+        if (required) {
+            throw new DomainError('VALIDATION_ERROR', 'Informe ao menos um nutriente para o fertilizante');
+        }
+        return null;
+    }
+
+    if (!Array.isArray(nutrientes) || nutrientes.length === 0) {
+        throw new DomainError('VALIDATION_ERROR', 'Informe ao menos um nutriente para o fertilizante');
+    }
+
+    const normalized = nutrientes.map((item) => {
+        const nutrienteId = item?.nutrienteId;
+        const teorRaw = item?.teorNutriente;
+        const teorNutriente = Number(teorRaw);
+
+        if (!Number.isInteger(nutrienteId) || nutrienteId <= 0) {
+            throw new DomainError('VALIDATION_ERROR', 'Nutriente inválido no fertilizante');
+        }
+
+        if (!Number.isFinite(teorNutriente) || teorNutriente <= 0) {
+            throw new DomainError('VALIDATION_ERROR', 'Teor do nutriente deve ser maior que zero');
+        }
+
+        return {
+            nutrienteId,
+            teorNutriente,
+        };
+    });
+
+    const uniqueIds = new Set(normalized.map((item) => item.nutrienteId));
+    if (uniqueIds.size !== normalized.length) {
+        throw new DomainError('VALIDATION_ERROR', 'Não é permitido repetir nutriente no mesmo fertilizante');
+    }
+
+    return normalized;
+}
+
+async function assertNutrientesExist(prisma, nutrientes) {
+    const nutrientesIds = [...new Set(nutrientes.map((item) => item.nutrienteId))];
+    const existentes = await prisma.nutriente.findMany({
+        where: {
+            id: {
+                in: nutrientesIds,
+            },
+        },
+        select: {
+            id: true,
+        },
+    });
+
+    if (existentes.length !== nutrientesIds.length) {
+        throw new DomainError('NOT_FOUND', 'Um ou mais nutrientes não foram encontrados');
+    }
+}
+
 async function findNameConflict(prisma, contaId, normalizedName, excludeId) {
     if (!normalizedName) {
         return null;
@@ -2196,6 +2253,7 @@ t.field(
     resolve: async (_, args, { prisma, authUserId }) => {
       const contaId = await assertContaInTenantScope(prisma, authUserId, args.contaId);
       const nomeNormalizado = normalizeName(args.input.nome);
+      const nutrientes = normalizeFertilizanteNutrientesInput(args.input.nutrientes, true);
 
       if (!nomeNormalizado) {
         throw new DomainError('VALIDATION_ERROR', 'Nome do fertilizante é obrigatório');
@@ -2206,15 +2264,31 @@ t.field(
         throw new DomainError('NAME_ALREADY_EXISTS', 'Já existe fertilizante customizado ativo com esse nome na conta');
       }
 
-      return prisma.fertilizante.create({
-        data: {
-          nome: nomeNormalizado,
-          origin: 'CUSTOM',
-          fk_contas_id: contaId,
-          c_eletrica: args.input?.c_eletrica,
-          compatibilidade: args.input?.compatibilidade,
-          solubilidade: args.input?.solubilidade,
-        },
+      await assertNutrientesExist(prisma, nutrientes);
+
+      return prisma.$transaction(async (tx) => {
+        const created = await tx.fertilizante.create({
+          data: {
+            nome: nomeNormalizado,
+            origin: 'CUSTOM',
+            fk_contas_id: contaId,
+            c_eletrica: args.input?.c_eletrica,
+            compatibilidade: args.input?.compatibilidade,
+            solubilidade: args.input?.solubilidade,
+            fertilizantes_nutrientes: {
+              createMany: {
+                data: nutrientes.map((item) => ({
+                  fk_nutrientes_id: item.nutrienteId,
+                  teor_nutriente: item.teorNutriente,
+                })),
+              },
+            },
+          },
+        });
+
+        return tx.fertilizante.findUnique({
+          where: { id: created.id },
+        });
       });
     }
   }
@@ -2313,6 +2387,14 @@ t.field(
       assertCanMutateFertilizante(fertilizante, contaId);
 
       const data = {};
+      let nutrientes = null;
+      const shouldUpdateNutrientes = args.input?.nutrientes !== undefined;
+
+      if (shouldUpdateNutrientes) {
+        nutrientes = normalizeFertilizanteNutrientesInput(args.input?.nutrientes, true);
+        await assertNutrientesExist(prisma, nutrientes);
+      }
+
       if (args.input?.nome !== undefined) {
         const nomeNormalizado = normalizeName(args.input.nome);
         if (!nomeNormalizado) {
@@ -2339,9 +2421,31 @@ t.field(
       if (args.input?.compatibilidade !== undefined) data.compatibilidade = args.input.compatibilidade;
       if (args.input?.solubilidade !== undefined) data.solubilidade = args.input.solubilidade;
 
-      return await prisma.fertilizante.update({
-        where: { id: args.fertilizanteId },
-        data,
+      return await prisma.$transaction(async (tx) => {
+        const updated = await tx.fertilizante.update({
+          where: { id: args.fertilizanteId },
+          data,
+        });
+
+        if (shouldUpdateNutrientes) {
+          await tx.fertilizantes_Nutrientes.deleteMany({
+            where: {
+              fk_fertilizantes_id: args.fertilizanteId,
+            },
+          });
+
+          await tx.fertilizantes_Nutrientes.createMany({
+            data: nutrientes.map((item) => ({
+              fk_fertilizantes_id: args.fertilizanteId,
+              fk_nutrientes_id: item.nutrienteId,
+              teor_nutriente: item.teorNutriente,
+            })),
+          });
+        }
+
+        return tx.fertilizante.findUnique({
+          where: { id: updated.id },
+        });
       });
     }
   }
@@ -2363,6 +2467,14 @@ const UpdateProtocoloInput = inputObjectType({
   }
 })
 
+const FertilizanteNutrienteInput = inputObjectType({
+  name: 'FertilizanteNutrienteInput',
+  definition(t) {
+    t.nonNull.int('nutrienteId');
+    t.nonNull.float('teorNutriente');
+  }
+})
+
 const CreateFertilizanteInput = inputObjectType({
   name: 'CreateFertilizanteInput',
   definition(t) {
@@ -2370,6 +2482,9 @@ const CreateFertilizanteInput = inputObjectType({
     t.string('c_eletrica');
     t.int('compatibilidade');
     t.float('solubilidade');
+    t.nonNull.field('nutrientes', {
+      type: nonNull(list(nonNull('FertilizanteNutrienteInput'))),
+    });
   }
 })
 
@@ -2380,6 +2495,9 @@ const UpdateFertilizanteInput = inputObjectType({
     t.string('c_eletrica');
     t.int('compatibilidade');
     t.float('solubilidade');
+    t.field('nutrientes', {
+      type: list(nonNull('FertilizanteNutrienteInput')),
+    });
   }
 })
 
@@ -2395,4 +2513,4 @@ function substractDays(date, days) {
     return newDate;
 }
 
-module.exports = { Mutation, UpdateFertilizanteInput, CreateFertilizanteInput }
+module.exports = { Mutation, UpdateFertilizanteInput, CreateFertilizanteInput, FertilizanteNutrienteInput }
