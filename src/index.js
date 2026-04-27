@@ -5,6 +5,7 @@ const { nexusPrisma } = require('nexus-plugin-prisma');
 const { PrismaClient } = require('@prisma/client');
 const path = require('path');
 const jwt = require('jsonwebtoken');
+const { maskGraphQLError } = require('./errors/apiErrors');
 
 // Carregar todos os tipos Nexus existentes
 const types = require('./schemas');
@@ -58,6 +59,9 @@ function extractAuthUserId(request) {
 
 const yoga = createYoga({
     schema,
+    maskedErrors: {
+        maskError: (error) => maskGraphQLError(error),
+    },
     context: ({ request }) => ({
         prisma,
         authUserId: extractAuthUserId(request),

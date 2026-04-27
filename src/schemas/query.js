@@ -1,24 +1,13 @@
 const { queryType } = require('@nexus/schema')
 const { list, nonNull, intArg, arg } = require('@nexus/schema')
+const {
+  DomainError,
+  AuthenticationError,
+  InfrastructureError,
+} = require('../errors/apiErrors')
 
 const MetricasLotesService = require('../services/metricasLotesService')
 const MetricasAgendaService = require('../services/metricasAgendaService')
-
-class DomainError extends Error {
-  constructor(code, message) {
-    super(message)
-    this.name = 'DomainError'
-    this.extensions = { code }
-  }
-}
-
-class AuthenticationError extends Error {
-  constructor(message) {
-    super(message)
-    this.name = 'AuthenticationError'
-    this.extensions = { code: 'UNAUTHENTICATED' }
-  }
-}
 
 async function getAuthorizedContaIds(prisma, authUserId) {
   if (!Number.isInteger(authUserId)) {
@@ -1434,7 +1423,10 @@ const Query = queryType({
           }
         } catch (error) {
           console.error('❌ Erro no resolver relatorioAgendaTarefas:', error)
-          throw new Error(`Falha ao gerar relatório de agenda: ${error.message}`)
+          throw new InfrastructureError(
+            'RELATORIO_AGENDA_FAILED',
+            `Falha ao gerar relatório de agenda: ${error.message}`
+          )
         }
       },
     })

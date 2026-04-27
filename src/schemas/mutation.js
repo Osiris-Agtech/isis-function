@@ -3,30 +3,12 @@ const { booleanArg, arg, inputObjectType } = require('nexus');
 const nodemailer = require("nodemailer");
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-
-class UserInputError extends Error {
-    constructor(message) {
-        super(message);
-        this.name = 'UserInputError';
-        this.extensions = { code: 'BAD_USER_INPUT' };
-    }
-}
-
-class AuthenticationError extends Error {
-    constructor(message) {
-        super(message);
-        this.name = 'AuthenticationError';
-        this.extensions = { code: 'UNAUTHENTICATED' };
-    }
-}
-
-class DomainError extends Error {
-    constructor(code, message) {
-        super(message);
-        this.name = 'DomainError';
-        this.extensions = { code };
-    }
-}
+const {
+    UserInputError,
+    AuthenticationError,
+    DomainError,
+    InfrastructureError,
+} = require('../errors/apiErrors');
 
 function normalizeName(name) {
     if (typeof name !== 'string') {
@@ -1124,7 +1106,10 @@ t.field(
                     const gmailPassword = process.env.GMAIL_PASSWORD;
 
                     if (!gmailUser || !gmailPassword) {
-                        throw new Error('GMAIL_USER ou GMAIL_PASSWORD não definidos nas variáveis de ambiente');
+                        throw new InfrastructureError(
+                            'EMAIL_CONFIG_MISSING',
+                            'GMAIL_USER ou GMAIL_PASSWORD não definidos nas variáveis de ambiente'
+                        );
                     }
 
                     // create reusable transporter object using the default SMTP transport
@@ -1146,7 +1131,7 @@ t.field(
                         console.log("Message sent: %s", info);
                     } catch (error) {
                         console.log(error);
-                        throw new Error("Falha ao enviar e-mail");
+                        throw new InfrastructureError('EMAIL_SEND_FAILED', 'Falha ao enviar e-mail');
                     }
                     console.log('Closing Transport');
                     transporter.close();
@@ -1252,7 +1237,10 @@ t.field(
                         const gmailPassword = process.env.GMAIL_PASSWORD;
 
                         if (!gmailUser || !gmailPassword) {
-                            throw new Error('GMAIL_USER ou GMAIL_PASSWORD não definidos');
+                            throw new InfrastructureError(
+                                'EMAIL_CONFIG_MISSING',
+                                'GMAIL_USER ou GMAIL_PASSWORD não definidos'
+                            );
                         }
 
                         let transporter = nodemailer.createTransport({
@@ -1490,7 +1478,10 @@ t.field(
                     const gmailPassword = process.env.GMAIL_PASSWORD;
 
                     if (!gmailUser || !gmailPassword) {
-                        throw new Error('GMAIL_USER ou GMAIL_PASSWORD não definidos');
+                        throw new InfrastructureError(
+                            'EMAIL_CONFIG_MISSING',
+                            'GMAIL_USER ou GMAIL_PASSWORD não definidos'
+                        );
                     }
 
                     let transporter = nodemailer.createTransport({
