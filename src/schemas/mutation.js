@@ -654,39 +654,48 @@ t.field(
       areaId: nonNull(intArg()),
     },
     resolve: async (_, args, { prisma }) => {
-      return await prisma.$transaction(async (tx) => {
-        const area = await tx.area.findUnique({
-          where: { id: args.areaId },
-          select: { id: true, deleted_at: true },
-        });
-
-        if (!area) throw new UserInputError("Area não encontrada");
-        if (area.deleted_at) throw new UserInputError("Area já deletada");
-
-        const setores = await tx.setor.findMany({
-          where: { fk_areas_id: args.areaId, deleted_at: null },
-          select: { id: true },
-        });
-
-        const setorIds = setores.map((s) => s.id);
-
-        if (setorIds.length > 0) {
-          await tx.lote.updateMany({
-            where: { fk_setores_id: { in: setorIds }, deleted_at: null },
-            data: { deleted_at: new Date().toISOString() },
-          });
-        }
-
-        await tx.setor.updateMany({
-          where: { fk_areas_id: args.areaId, deleted_at: null },
-          data: { deleted_at: new Date().toISOString() },
-        });
-
-        return await tx.area.update({
-          where: { id: args.areaId },
-          data: { deleted_at: new Date().toISOString() },
-        });
+      const area = await prisma.area.findUnique({
+        where: { id: args.areaId },
+        select: { id: true, deleted_at: true },
       });
+
+      if (!area) throw new UserInputError("Area não encontrada");
+      if (area.deleted_at) throw new UserInputError("Area já deletada");
+
+      const setores = await prisma.setor.findMany({
+        where: { fk_areas_id: args.areaId, deleted_at: null },
+        select: { id: true },
+      });
+
+      const setorIds = setores.map((s) => s.id);
+      const deletedAt = new Date().toISOString();
+      const txOperations = [];
+
+      if (setorIds.length > 0) {
+        txOperations.push(
+          prisma.lote.updateMany({
+            where: { fk_setores_id: { in: setorIds }, deleted_at: null },
+            data: { deleted_at: deletedAt },
+          })
+        );
+      }
+
+      txOperations.push(
+        prisma.setor.updateMany({
+          where: { fk_areas_id: args.areaId, deleted_at: null },
+          data: { deleted_at: deletedAt },
+        })
+      );
+
+      txOperations.push(
+        prisma.area.update({
+          where: { id: args.areaId },
+          data: { deleted_at: deletedAt },
+        })
+      );
+
+      const txResults = await prisma.$transaction(txOperations);
+      return txResults[txResults.length - 1];
     },
   }
 )
@@ -699,25 +708,28 @@ t.field(
       setorId: nonNull(intArg()),
     },
     resolve: async (_, args, { prisma }) => {
-      return await prisma.$transaction(async (tx) => {
-        const setor = await tx.setor.findUnique({
-          where: { id: args.setorId },
-          select: { id: true, deleted_at: true },
-        });
-
-        if (!setor) throw new UserInputError("Setor não encontrado");
-        if (setor.deleted_at) throw new UserInputError("Setor já deletado");
-
-        await tx.lote.updateMany({
-          where: { fk_setores_id: args.setorId, deleted_at: null },
-          data: { deleted_at: new Date().toISOString() },
-        });
-
-        return await tx.setor.update({
-          where: { id: args.setorId },
-          data: { deleted_at: new Date().toISOString() },
-        });
+      const setor = await prisma.setor.findUnique({
+        where: { id: args.setorId },
+        select: { id: true, deleted_at: true },
       });
+
+      if (!setor) throw new UserInputError("Setor não encontrado");
+      if (setor.deleted_at) throw new UserInputError("Setor já deletado");
+
+      const deletedAt = new Date().toISOString();
+
+      const txResults = await prisma.$transaction([
+        prisma.lote.updateMany({
+          where: { fk_setores_id: args.setorId, deleted_at: null },
+          data: { deleted_at: deletedAt },
+        }),
+        prisma.setor.update({
+          where: { id: args.setorId },
+          data: { deleted_at: deletedAt },
+        }),
+      ]);
+
+      return txResults[1];
     },
   }
 )
@@ -730,25 +742,28 @@ t.field(
       reservatorioId: nonNull(intArg()),
     },
     resolve: async (_, args, { prisma }) => {
-      return await prisma.$transaction(async (tx) => {
-        const reservatorio = await tx.reservatorio.findUnique({
-          where: { id: args.reservatorioId },
-          select: { id: true, deleted_at: true },
-        });
-
-        if (!reservatorio) throw new UserInputError("Reservatorio não encontrado");
-        if (reservatorio.deleted_at) throw new UserInputError("Reservatorio já deletado");
-
-        await tx.lote.updateMany({
-          where: { fk_reservatorios_id: args.reservatorioId, deleted_at: null },
-          data: { deleted_at: new Date().toISOString() },
-        });
-
-        return await tx.reservatorio.update({
-          where: { id: args.reservatorioId },
-          data: { deleted_at: new Date().toISOString() },
-        });
+      const reservatorio = await prisma.reservatorio.findUnique({
+        where: { id: args.reservatorioId },
+        select: { id: true, deleted_at: true },
       });
+
+      if (!reservatorio) throw new UserInputError("Reservatorio não encontrado");
+      if (reservatorio.deleted_at) throw new UserInputError("Reservatorio já deletado");
+
+      const deletedAt = new Date().toISOString();
+
+      const txResults = await prisma.$transaction([
+        prisma.lote.updateMany({
+          where: { fk_reservatorios_id: args.reservatorioId, deleted_at: null },
+          data: { deleted_at: deletedAt },
+        }),
+        prisma.reservatorio.update({
+          where: { id: args.reservatorioId },
+          data: { deleted_at: deletedAt },
+        }),
+      ]);
+
+      return txResults[1];
     },
   }
 )
@@ -763,41 +778,50 @@ t.field(
     resolve: async (_, args, { prisma, authUserId }) => {
       const authorizedContaIds = await getAuthorizedContaIds(prisma, authUserId);
 
-      return await prisma.$transaction(async (tx) => {
-        await assertSolucaoInTenantScope(tx, args.snutritivaId, authorizedContaIds);
+      await assertSolucaoInTenantScope(prisma, args.snutritivaId, authorizedContaIds);
 
-        const snutritiva = await tx.sNutritiva.findUnique({
-          where: { id: args.snutritivaId },
-          select: { id: true, deleted_at: true },
-        });
-
-        if (!snutritiva) throw new UserInputError("SNutritiva não encontrada");
-        if (snutritiva.deleted_at) throw new UserInputError("SNutritiva já deletada");
-
-        const reservatorios = await tx.reservatorio.findMany({
-          where: { fk_snutritivas_id: args.snutritivaId, deleted_at: null },
-          select: { id: true },
-        });
-
-        const reservatorioIds = reservatorios.map((r) => r.id);
-
-        if (reservatorioIds.length > 0) {
-          await tx.lote.updateMany({
-            where: { fk_reservatorios_id: { in: reservatorioIds }, deleted_at: null },
-            data: { deleted_at: new Date().toISOString() },
-          });
-        }
-
-        await tx.reservatorio.updateMany({
-          where: { fk_snutritivas_id: args.snutritivaId, deleted_at: null },
-          data: { deleted_at: new Date().toISOString() },
-        });
-
-        return await tx.sNutritiva.update({
-          where: { id: args.snutritivaId },
-          data: { deleted_at: new Date().toISOString() },
-        });
+      const snutritiva = await prisma.sNutritiva.findUnique({
+        where: { id: args.snutritivaId },
+        select: { id: true, deleted_at: true },
       });
+
+      if (!snutritiva) throw new UserInputError("SNutritiva não encontrada");
+      if (snutritiva.deleted_at) throw new UserInputError("SNutritiva já deletada");
+
+      const reservatorios = await prisma.reservatorio.findMany({
+        where: { fk_snutritivas_id: args.snutritivaId, deleted_at: null },
+        select: { id: true },
+      });
+
+      const reservatorioIds = reservatorios.map((r) => r.id);
+      const deletedAt = new Date().toISOString();
+      const txOperations = [];
+
+      if (reservatorioIds.length > 0) {
+        txOperations.push(
+          prisma.lote.updateMany({
+            where: { fk_reservatorios_id: { in: reservatorioIds }, deleted_at: null },
+            data: { deleted_at: deletedAt },
+          })
+        );
+      }
+
+      txOperations.push(
+        prisma.reservatorio.updateMany({
+          where: { fk_snutritivas_id: args.snutritivaId, deleted_at: null },
+          data: { deleted_at: deletedAt },
+        })
+      );
+
+      txOperations.push(
+        prisma.sNutritiva.update({
+          where: { id: args.snutritivaId },
+          data: { deleted_at: deletedAt },
+        })
+      );
+
+      const txResults = await prisma.$transaction(txOperations);
+      return txResults[txResults.length - 1];
     },
   }
 )
@@ -810,25 +834,28 @@ t.field(
       protocoloId: nonNull(intArg()),
     },
     resolve: async (_, args, { prisma }) => {
-      return await prisma.$transaction(async (tx) => {
-        const protocolo = await tx.protocolo.findUnique({
-          where: { id: args.protocoloId },
-          select: { id: true, deleted_at: true },
-        });
-
-        if (!protocolo) throw new UserInputError("Protocolo não encontrado");
-        if (protocolo.deleted_at) throw new UserInputError("Protocolo já deletado");
-
-        await tx.lote.updateMany({
-          where: { fk_protocolos_id: args.protocoloId, deleted_at: null },
-          data: { deleted_at: new Date().toISOString() },
-        });
-
-        return await tx.protocolo.update({
-          where: { id: args.protocoloId },
-          data: { deleted_at: new Date().toISOString() },
-        });
+      const protocolo = await prisma.protocolo.findUnique({
+        where: { id: args.protocoloId },
+        select: { id: true, deleted_at: true },
       });
+
+      if (!protocolo) throw new UserInputError("Protocolo não encontrado");
+      if (protocolo.deleted_at) throw new UserInputError("Protocolo já deletado");
+
+      const deletedAt = new Date().toISOString();
+
+      const txResults = await prisma.$transaction([
+        prisma.lote.updateMany({
+          where: { fk_protocolos_id: args.protocoloId, deleted_at: null },
+          data: { deleted_at: deletedAt },
+        }),
+        prisma.protocolo.update({
+          where: { id: args.protocoloId },
+          data: { deleted_at: deletedAt },
+        }),
+      ]);
+
+      return txResults[1];
     },
   }
 )
@@ -2257,31 +2284,25 @@ t.field(
 
       await assertNutrientesExist(prisma, nutrientes);
 
-      return prisma.$transaction(async (tx) => {
-        const created = await tx.fertilizante.create({
-          data: {
-            nome: nomeNormalizado,
-            origin: 'CUSTOM',
-            fk_contas_id: contaId,
-            c_eletrica: args.input?.c_eletrica,
-            compatibilidade: args.input?.compatibilidade,
-            solubilidade: args.input?.solubilidade,
-            fertilizantes_nutrientes: {
-              create: nutrientes.map((item) => ({
-                nutriente: {
-                  connect: {
-                    id: item.nutrienteId,
-                  },
+      return prisma.fertilizante.create({
+        data: {
+          nome: nomeNormalizado,
+          origin: 'CUSTOM',
+          fk_contas_id: contaId,
+          c_eletrica: args.input?.c_eletrica,
+          compatibilidade: args.input?.compatibilidade,
+          solubilidade: args.input?.solubilidade,
+          fertilizantes_nutrientes: {
+            create: nutrientes.map((item) => ({
+              nutriente: {
+                connect: {
+                  id: item.nutrienteId,
                 },
-                teor_nutriente: item.teorNutriente,
-              })),
-            },
+              },
+              teor_nutriente: item.teorNutriente,
+            })),
           },
-        });
-
-        return tx.fertilizante.findUnique({
-          where: { id: created.id },
-        });
+        },
       });
     }
   }
@@ -2414,41 +2435,23 @@ t.field(
       if (args.input?.compatibilidade !== undefined) data.compatibilidade = args.input.compatibilidade;
       if (args.input?.solubilidade !== undefined) data.solubilidade = args.input.solubilidade;
 
-      return await prisma.$transaction(async (tx) => {
-        const updated = await tx.fertilizante.update({
-          where: { id: args.fertilizanteId },
-          data,
-        });
-
-        if (shouldUpdateNutrientes) {
-          await tx.fertilizantes_Nutrientes.deleteMany({
-            where: {
-              fk_fertilizantes_id: args.fertilizanteId,
-            },
-          });
-
-          for (const item of nutrientes) {
-            await tx.fertilizantes_Nutrientes.create({
-              data: {
-                fertilizante: {
-                  connect: {
-                    id: args.fertilizanteId,
-                  },
-                },
-                nutriente: {
-                  connect: {
-                    id: item.nutrienteId,
-                  },
-                },
-                teor_nutriente: item.teorNutriente,
+      if (shouldUpdateNutrientes) {
+        data.fertilizantes_nutrientes = {
+          deleteMany: {},
+          create: nutrientes.map((item) => ({
+            nutriente: {
+              connect: {
+                id: item.nutrienteId,
               },
-            });
-          }
-        }
+            },
+            teor_nutriente: item.teorNutriente,
+          })),
+        };
+      }
 
-        return tx.fertilizante.findUnique({
-          where: { id: updated.id },
-        });
+      return await prisma.fertilizante.update({
+        where: { id: args.fertilizanteId },
+        data,
       });
     }
   }
