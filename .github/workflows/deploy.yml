@@ -11,6 +11,8 @@ jobs:
 
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      GMAIL_USER: ${{ secrets.GMAIL_USER }}
+      GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
       NODE_ENV: production
 
     steps:
