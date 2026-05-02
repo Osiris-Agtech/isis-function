@@ -1013,18 +1013,32 @@ t.field(
 
       const deletedAt = new Date().toISOString();
 
-      const txResults = await prisma.$transaction([
-        prisma.lote.updateMany({
-          where: { fk_protocolos_id: args.protocoloId, deleted_at: null },
-          data: { deleted_at: deletedAt },
-        }),
-        prisma.protocolo.update({
+      await prisma.lote.updateMany({
+        where: { fk_protocolos_id: args.protocoloId, deleted_at: null },
+        data: { deleted_at: deletedAt },
+      });
+
+      try {
+        return await prisma.protocolo.update({
           where: { id: args.protocoloId },
           data: { deleted_at: deletedAt },
-        }),
-      ]);
+        });
+      } catch (error) {
+        await prisma.notificacao.create({
+          data: {
+            key: 'soft-delete-protocolo-partial-failure',
+            valor: String(args.protocoloId),
+            descricao: error instanceof Error
+              ? error.message
+              : 'Falha ao concluir softDeleteProtocoloCascade após atualizar lotes',
+          },
+        });
 
-      return txResults[1];
+        throw new InfrastructureError(
+          'SOFT_DELETE_PROTOCOLO_PARTIAL_FAILURE',
+          'Falha ao concluir remoção do protocolo após atualizar lotes vinculados'
+        );
+      }
     },
   }
 )
