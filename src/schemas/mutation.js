@@ -18,6 +18,83 @@ function normalizeName(name) {
     return name.trim();
 }
 
+function getGmailConfigOrThrow() {
+    const gmailUser = process.env.GMAIL_USER;
+    const gmailPassword = process.env.GMAIL_PASSWORD;
+
+    if (!gmailUser || !gmailPassword) {
+        throw new InfrastructureError(
+            'EMAIL_CONFIG_MISSING',
+            'GMAIL_USER ou GMAIL_PASSWORD não definidos'
+        );
+    }
+
+    return {
+        gmailUser,
+        gmailPassword,
+    };
+}
+
+async function sendInviteEmail(gmailConfig, mailOptions) {
+    const transporter = nodemailer.createTransport({
+        service: 'Gmail',
+        auth: {
+            user: gmailConfig.gmailUser,
+            pass: gmailConfig.gmailPassword,
+        },
+    });
+
+    try {
+        return await transporter.sendMail(mailOptions);
+    } finally {
+        transporter.close();
+    }
+}
+
+function enqueueInviteEmailDispatch(prisma, payload) {
+    const maxAttempts = 3;
+    const retryDelayMs = 3000;
+
+    const attemptSend = async (attempt) => {
+        try {
+            const info = await sendInviteEmail(payload.gmailConfig, {
+                from: `"Osiris Agtech 🌱" <${payload.gmailConfig.gmailUser}>`,
+                to: payload.to,
+                subject: payload.subject,
+                html: payload.html,
+            });
+
+            await prisma.notificacao.create({
+                data: {
+                    key: 'invite-contributor-email-success',
+                    valor: payload.to,
+                    descricao: `inviteContributor email enviado (attempt=${attempt}): ${info.response || 'ok'}`,
+                },
+            });
+        } catch (error) {
+            const lastAttempt = attempt >= maxAttempts;
+
+            await prisma.notificacao.create({
+                data: {
+                    key: lastAttempt ? 'invite-contributor-email-failed' : 'invite-contributor-email-retry',
+                    valor: payload.to,
+                    descricao: `inviteContributor email ${lastAttempt ? 'falhou' : 'retry'} (attempt=${attempt}): ${error instanceof Error ? error.message : 'erro desconhecido'}`,
+                },
+            });
+
+            if (!lastAttempt) {
+                setTimeout(() => {
+                    void attemptSend(attempt + 1);
+                }, retryDelayMs);
+            }
+        }
+    };
+
+    setTimeout(() => {
+        void attemptSend(1);
+    }, 0);
+}
+
 function normalizeFertilizanteNutrientesInput(nutrientes, required) {
     if (nutrientes == null) {
         if (required) {
@@ -1181,359 +1258,378 @@ t.field(
                     contaId: nonNull(intArg()),
                 },
                 resolve: async (_, args, { prisma }) => {
+                    const gmailConfig = getGmailConfigOrThrow();
+                    const createdResources = {
+                        pessoaId: null,
+                        contaId: null,
+                        usuarioId: null,
+                        conectaContaIds: [],
+                        solucoesCriadasIds: [],
+                        shouldCompensate: false,
+                    };
 
-                    const buscarUsuario = await prisma.usuario.findMany({
-                        where: {
-                            email: args.email,
-                        },
-                        include: {
-                            contas: true,
-                        },
-                    });
-                    console.log(buscarUsuario);
+                    const compensateInviteContributor = async () => {
+                        if (!createdResources.shouldCompensate) {
+                            return;
+                        }
 
-                    if (!(buscarUsuario.length === 0)) {
-                        // ## Verificar primeiro se já existe essa conexão
-                        var indexConta = buscarUsuario[0].contas.findIndex(function (x) {
-                            console.log(x);
-                            return x.fk_contas_id === args.contaId;
-                        })
-                        if (indexConta != -1) {
-                            console.log("##### JÁ EXISTE ESTA CONEXÃO #####")
+                        try {
+                            if (createdResources.conectaContaIds.length > 0) {
+                                await prisma.ConectaConta.deleteMany({
+                                    where: {
+                                        id: {
+                                            in: createdResources.conectaContaIds,
+                                        },
+                                    },
+                                });
+                            }
 
-                            const conectaContaCargoUser = await prisma.ConectaConta.update({
-                                where: {
-                                    id: buscarUsuario[0].contas[indexConta].id,
-                                },
+                            if (createdResources.solucoesCriadasIds.length > 0) {
+                                await prisma.sNutritiva.deleteMany({
+                                    where: {
+                                        id: {
+                                            in: createdResources.solucoesCriadasIds,
+                                        },
+                                    },
+                                });
+                            }
+
+                            if (Number.isInteger(createdResources.usuarioId)) {
+                                await prisma.usuario.delete({
+                                    where: {
+                                        id: createdResources.usuarioId,
+                                    },
+                                });
+                            }
+
+                            if (Number.isInteger(createdResources.contaId)) {
+                                await prisma.conta.delete({
+                                    where: {
+                                        id: createdResources.contaId,
+                                    },
+                                });
+                            }
+
+                            if (Number.isInteger(createdResources.pessoaId)) {
+                                await prisma.pessoa.delete({
+                                    where: {
+                                        id: createdResources.pessoaId,
+                                    },
+                                });
+                            }
+                        } catch (compensationError) {
+                            await prisma.notificacao.create({
                                 data: {
+                                    key: 'invite-contributor-compensation-failed',
+                                    valor: args.email,
+                                    descricao: compensationError instanceof Error ? compensationError.message : 'Falha ao compensar inviteContributor',
+                                },
+                            });
+                        }
+                    };
+
+                    let mutationResult;
+
+                    try {
+                        const buscarUsuario = await prisma.usuario.findMany({
+                            where: {
+                                email: args.email,
+                            },
+                            include: {
+                                contas: true,
+                            },
+                        });
+
+                        if (buscarUsuario.length > 0) {
+                            const indexConta = buscarUsuario[0].contas.findIndex((contaVinculada) => contaVinculada.fk_contas_id === args.contaId);
+
+                            const contaInvited = await prisma.conta.findUnique({
+                                where: {
+                                    id: args.contaId,
+                                },
+                            });
+
+                            const cargoInvited = await prisma.cargo.findUnique({
+                                where: {
+                                    id: args.cargoId,
+                                },
+                            });
+
+                            if (indexConta !== -1) {
+                                const conectaContaCargoUser = await prisma.ConectaConta.update({
+                                    where: {
+                                        id: buscarUsuario[0].contas[indexConta].id,
+                                    },
+                                    data: {
+                                        cargo: {
+                                            connect: {
+                                                id: args.cargoId,
+                                            },
+                                        },
+                                    },
+                                    include: {
+                                        conta: true,
+                                        cargo: true,
+                                    },
+                                });
+
+                                mutationResult = {
+                                    infoAcesso: { ...buscarUsuario[0], conta: conectaContaCargoUser.conta, cargo: conectaContaCargoUser.cargo },
+                                    emailPayload: {
+                                        to: args.email,
+                                        subject: 'Convite de colaborador reenviado ✔',
+                                        html: 'Seu acesso à conta ' + contaInvited.nome + ' foi atualizado para o cargo ' + cargoInvited.cargo + '.\n\nAcesse ao aplicativo Osiris para mais informações.',
+                                    },
+                                };
+                            } else {
+                                const conectaContaCargoUser = await prisma.ConectaConta.create({
+                                    data: {
+                                        conta: {
+                                            connect: {
+                                                id: args.contaId,
+                                            },
+                                        },
+                                        usuario: {
+                                            connect: {
+                                                id: buscarUsuario[0].id,
+                                            },
+                                        },
+                                        cargo: {
+                                            connect: {
+                                                id: args.cargoId,
+                                            },
+                                        },
+                                    },
+                                    include: {
+                                        conta: true,
+                                        cargo: true,
+                                    },
+                                });
+
+                                mutationResult = {
+                                    infoAcesso: { ...buscarUsuario[0], conta: conectaContaCargoUser.conta, cargo: conectaContaCargoUser.cargo },
+                                    emailPayload: {
+                                        to: args.email,
+                                        subject: 'Adicionado colaborador ✔',
+                                        html: 'Você foi adicionado a conta ' + contaInvited.nome + ' com o cargo ' + cargoInvited.cargo + '.\n\nAcesse ao aplicativo Osiris para mais informações.',
+                                    },
+                                };
+                            }
+                        } else {
+                            createdResources.shouldCompensate = true;
+
+                            const pessoa = await prisma.pessoa.create({
+                                data: {
+                                    nome: args.nome,
+                                    sobrenome: args.sobrenome,
+                                },
+                                select: {
+                                    id: true,
+                                },
+                            });
+                            createdResources.pessoaId = pessoa.id;
+
+                            const conta = await prisma.conta.create({
+                                data: {
+                                    nome: args.nome,
+                                    nivel: '1',
+                                },
+                                select: {
+                                    id: true,
+                                },
+                            });
+                            createdResources.contaId = conta.id;
+
+                            const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+                            const passwordLength = 8;
+                            let password = '';
+
+                            for (let i = 0; i <= passwordLength; i++) {
+                                const randomNumber = Math.floor(Math.random() * chars.length);
+                                password += chars.substring(randomNumber, randomNumber + 1);
+                            }
+
+                            const hashedPassword = await bcrypt.hash(password, 10);
+                            const usuario = await prisma.usuario.create({
+                                data: {
+                                    nome: args.nome,
+                                    email: args.email,
+                                    senha: hashedPassword,
+                                    pessoa: {
+                                        connect: {
+                                            id: pessoa.id,
+                                        },
+                                    },
+                                },
+                            });
+                            createdResources.usuarioId = usuario.id;
+
+                            const conectaContaPrincipal = await prisma.ConectaConta.create({
+                                data: {
+                                    conta: {
+                                        connect: {
+                                            id: args.contaId,
+                                        },
+                                    },
+                                    usuario: {
+                                        connect: {
+                                            id: usuario.id,
+                                        },
+                                    },
                                     cargo: {
                                         connect: {
                                             id: args.cargoId,
-                                        }
-                                    }
+                                        },
+                                    },
+                                },
+                            });
+                            createdResources.conectaContaIds.push(conectaContaPrincipal.id);
+
+                            let cargoOwner = await prisma.cargo.findUnique({
+                                where: { id: 1 },
+                            });
+
+                            if (!cargoOwner) {
+                                cargoOwner = await prisma.cargo.create({
+                                    data: {
+                                        id: 1,
+                                        cargo: 'Owner',
+                                    },
+                                });
+                            }
+
+                            const conectaContaCargoUser = await prisma.ConectaConta.create({
+                                data: {
+                                    conta: {
+                                        connect: {
+                                            id: conta.id,
+                                        },
+                                    },
+                                    usuario: {
+                                        connect: {
+                                            id: usuario.id,
+                                        },
+                                    },
+                                    cargo: {
+                                        connect: {
+                                            id: cargoOwner.id,
+                                        },
+                                    },
                                 },
                                 include: {
                                     conta: true,
                                     cargo: true,
                                 },
                             });
+                            createdResources.conectaContaIds.push(conectaContaCargoUser.id);
 
-                            const infoAcesso = { ...buscarUsuario[0], conta: conectaContaCargoUser.conta, cargo: conectaContaCargoUser.cargo };
-                            console.log(infoAcesso);
-                            return infoAcesso;
-                        }
+                            const solucoesIniciais = [12, 13, 14, 15, 16];
 
-                        console.log("##### CONEXÃO NÃO EXISTE #####")
-                        const conectaContaCargoUser = await prisma.ConectaConta.create({
-                            data: {
-                                conta: {
-                                    connect: {
-                                        id: args.contaId,
-                                    }
-                                },
-                                usuario: {
-                                    connect: {
-                                        id: buscarUsuario[0].id,
-                                    }
-                                },
-                                cargo: {
-                                    connect: {
-                                        id: args.cargoId,
+                            for (const solucaoId of solucoesIniciais) {
+                                const snutritiva = await prisma.sNutritiva.findMany({
+                                    where: {
+                                        id: solucaoId,
+                                    },
+                                    include: {
+                                        solucoes_fertilizantes_concentradas: true,
+                                    },
+                                });
+
+                                if (!snutritiva.length) {
+                                    continue;
+                                }
+
+                                const solucaoFertilizantes = [];
+                                for (const object of snutritiva[0].solucoes_fertilizantes_concentradas) {
+                                    if (object.fk_concentradas_id != null) {
+                                        solucaoFertilizantes.push({
+                                            quantidade: Number(object.quantidade),
+                                            fertilizante: {
+                                                connect: {
+                                                    id: Number(object.fk_fertilizantes_id),
+                                                },
+                                            },
+                                            concentrada: {
+                                                connect: {
+                                                    id: object.fk_concentradas_id,
+                                                },
+                                            },
+                                        });
+                                    } else {
+                                        solucaoFertilizantes.push({
+                                            quantidade: Number(object.quantidade),
+                                            fertilizante: {
+                                                connect: {
+                                                    id: Number(object.fk_fertilizantes_id),
+                                                },
+                                            },
+                                        });
                                     }
                                 }
-                            },
-                            include: {
-                                conta: true,
-                                cargo: true,
-                            },
-                        });
 
-                        const contaInvited = await prisma.conta.findUnique({
-                            where: {
-                                id: args.contaId,
-                            },
-                        });
+                                const data = {
+                                    c_eletrica: Number(snutritiva[0].c_eletrica),
+                                    nome: String(snutritiva[0].nome),
+                                    solucoes_contas: {
+                                        create: [
+                                            {
+                                                conta_original: 1,
+                                                conta: {
+                                                    connect: {
+                                                        id: conta.id,
+                                                    },
+                                                },
+                                            },
+                                        ],
+                                    },
+                                    solucoes_fertilizantes_concentradas: {
+                                        create: [
+                                            ...solucaoFertilizantes,
+                                        ],
+                                    },
+                                };
 
-                        const cargoInvited = await prisma.cargo.findUnique({
-                            where: {
-                                id: args.cargoId,
-                            },
-                        });
-
-                        const gmailUser = process.env.GMAIL_USER;
-                        const gmailPassword = process.env.GMAIL_PASSWORD;
-
-                        if (!gmailUser || !gmailPassword) {
-                            throw new InfrastructureError(
-                                'EMAIL_CONFIG_MISSING',
-                                'GMAIL_USER ou GMAIL_PASSWORD não definidos'
-                            );
-                        }
-
-                        let transporter = nodemailer.createTransport({
-                            service: "Gmail",
-                            auth: {
-                                user: gmailUser,
-                                pass: gmailPassword,
+                                const novaSolucao = await prisma.sNutritiva.create({
+                                    data,
+                                });
+                                createdResources.solucoesCriadasIds.push(novaSolucao.id);
                             }
-                        });
 
-                        let info = await transporter.sendMail({
-                            from: `"Osiris Agtech 🌱" <${gmailUser}>`,
-                            to: args.email,
-                            subject: 'Adicionado colaborador ✔',
-                            html: 'Você foi adicionado a conta ' + contaInvited.nome + ' com o cargo ' + cargoInvited.cargo + '. \n\nAcesse ao aplicativo Osiris para mais informações.',
-                        });
-                        console.log('Message sent successfully!');
-                        console.log('Server responded with "%s"', info.response);
-                        console.log('Closing Transport');
-                        transporter.close();
-
-                        const infoAcesso = { ...buscarUsuario[0], conta: conectaContaCargoUser.conta, cargo: conectaContaCargoUser.cargo };
-                        console.log(infoAcesso);
-                        return infoAcesso;
-                    } else {
-                        // Create Pessoa
-                        let pessoa;
-                        let conta;
-                        let usuario;
-                        let conectaContaCargoUser;
-                        
-                        pessoa = await prisma.pessoa.create({
-                        data: {
-                            nome: args.nome,
-                            sobrenome: args.sobrenome,
-                        },
-                        select: {
-                            id: true,
-                        }
-                    });
-
-                    // # Criar a Conta
-                    conta = await prisma.conta.create({
-                        data: {
-                            nome: args.nome,
-                            nivel: "1",
-                        },
-                        select: {
-                            id: true,
-                        }
-                    });
-                    console.log(conta)
-
-                    //generate password
-                    var chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-                    var passwordLength = 8;
-                    var password = "";
-
-                    for (var i = 0; i <= passwordLength; i++) {
-                        var randomNumber = Math.floor(Math.random() * chars.length);
-                        password += chars.substring(randomNumber, randomNumber + 1);
-                    }
-
-                    // # Criar o Usuário
-                    const hashedPassword = await bcrypt.hash(password, 10);
-                    usuario = await prisma.usuario.create({
-                        data: {
-                            nome: args.nome,
-                            email: args.email,
-                            senha: hashedPassword,
-                            pessoa: {
-                                connect: {
-                                    id: pessoa.id,
-                                }
-                            }
-                        },
-                    });
-                    console.log(usuario)
-
-                    await prisma.ConectaConta.create({
-                        data: {
-                            conta: {
-                                connect: {
+                            const contaInvited = await prisma.conta.findUnique({
+                                where: {
                                     id: args.contaId,
-                                }
-                            },
-                            usuario: {
-                                connect: {
-                                    id: usuario.id,
-                                }
-                            },
-                            cargo: {
-                                connect: {
+                                },
+                            });
+
+                            const cargoInvited = await prisma.cargo.findUnique({
+                                where: {
                                     id: args.cargoId,
-                                }
-                            }
-                        },
-                        include: {
-                            conta: true,
-                            cargo: true,
-                        },
-                    })
+                                },
+                            });
 
-                    // # Garantir que o cargo Owner existe
-                    let cargoOwner = await prisma.cargo.findUnique({
-                        where: { id: 1 }
-                    });
-
-                    if (!cargoOwner) {
-                        cargoOwner = await prisma.cargo.create({
-                            data: {
-                                id: 1,
-                                cargo: 'Owner'
-                            }
-                        });
-                        console.log('Cargo Owner criado:', cargoOwner);
-                    }
-
-                    // # Conecta a Conta criada com o Usuário criado e atribui o Cargo de Owner (Dono)
-                    conectaContaCargoUser = await prisma.ConectaConta.create({
-                        data: {
-                            conta: {
-                                connect: {
-                                    id: conta.id,
-                                }
-                            },
-                            usuario: {
-                                connect: {
-                                    id: usuario.id,
-                                }
-                            },
-                            cargo: {
-                                connect: {
-                                    id: cargoOwner.id,
-                                }
-                            }
-                        },
-                        include: {
-                            conta: true,
-                            cargo: true,
-                        },
-                    })
-                    console.log(conectaContaCargoUser)
-
-                    /// CADASTRA SOLUÇÕES NUTRITIVAS INICIAIS PARA O NOVO USUÁRIO
-                    // IDs das soluções padrão do sistema (serão migradas para seed/fixture)
-                    const solucoesIniciais = [12, 13, 14, 15, 16];
-
-                    for (const solucaoId of solucoesIniciais) {
-                        const snutritiva = await prisma.sNutritiva.findMany({
-                            where: {
-                              id: solucaoId,
-                            },
-                            include: {
-                                solucoes_fertilizantes_concentradas: true
-                            }
-                        });
-
-                        if (!snutritiva.length) {
-                            console.log(`SNutritiva id=${solucaoId} não encontrada, pulando...`);
-                            continue;
+                            mutationResult = {
+                                infoAcesso: { ...usuario, conta: conectaContaCargoUser.conta, cargo: conectaContaCargoUser.cargo },
+                                emailPayload: {
+                                    to: args.email,
+                                    subject: 'Adicionado colaborador ✔',
+                                    html: 'Você foi adicionado a conta ' + contaInvited.nome + ' com o cargo ' + cargoInvited.cargo + '.\n\nAcesse ao aplicativo Osiris com seu e-mail e a senha "' + password + '" para ter acesso.',
+                                },
+                            };
+                            createdResources.shouldCompensate = false;
                         }
-                        var solucaoFertilizantes = [];
-                        for (const object of snutritiva[0].solucoes_fertilizantes_concentradas) {
-                            if(object.fk_concentradas_id != null) {
-                                solucaoFertilizantes.push({
-                                    quantidade: Number(object.quantidade),
-                                    fertilizante: {
-                                        connect: {
-                                            id: Number(object.fk_fertilizantes_id)
-                                        }
-                                    },
-                                    concentrada: {
-                                        connect: {
-                                            id: object.fk_concentradas_id
-                                        }
-                                    }
-                                });
-                            } else {
-                                solucaoFertilizantes.push({
-                                    quantidade: Number(object.quantidade),
-                                    fertilizante: {
-                                        connect: {
-                                            id: Number(object.fk_fertilizantes_id)
-                                        }
-                                    },
-                                });
-                            }
-                        }
-                        console.log(solucaoFertilizantes);
-                        var data = {
-                            c_eletrica: Number(snutritiva[0].c_eletrica),
-                            nome: String(snutritiva[0].nome),
-                            solucoes_contas: {
-                                create: [
-                                {
-                                    conta_original: 1,
-                                    conta: {
-                                    connect: {
-                                        id: conta.id
-                                    }
-                                    }
-                                }
-                                ]
-                            },
-                            solucoes_fertilizantes_concentradas: {
-                                create: [
-                                ...solucaoFertilizantes
-                                ]
-                            }
-                        };
-
-                        const novaSNutritiva = await prisma.sNutritiva.create({
-                            data: data,
-                            include: {
-                                solucoes_fertilizantes_concentradas: true
-                            }
-                        });
-                        console.log(novaSNutritiva);
+                    } catch (error) {
+                        await compensateInviteContributor();
+                        throw error;
                     }
 
-                    const contaInvited = await prisma.conta.findUnique({
-                        where: {
-                            id: args.contaId,
-                        },
+                    enqueueInviteEmailDispatch(prisma, {
+                        gmailConfig,
+                        to: mutationResult.emailPayload.to,
+                        subject: mutationResult.emailPayload.subject,
+                        html: mutationResult.emailPayload.html,
                     });
 
-                    const cargoInvited = await prisma.cargo.findUnique({
-                        where: {
-                            id: args.cargoId,
-                        },
-                    });
-
-                    const gmailUser = process.env.GMAIL_USER;
-                    const gmailPassword = process.env.GMAIL_PASSWORD;
-
-                    if (!gmailUser || !gmailPassword) {
-                        throw new InfrastructureError(
-                            'EMAIL_CONFIG_MISSING',
-                            'GMAIL_USER ou GMAIL_PASSWORD não definidos'
-                        );
-                    }
-
-                    let transporter = nodemailer.createTransport({
-                        service: "Gmail",
-                        auth: {
-                            user: gmailUser,
-                            pass: gmailPassword,
-                        }
-                    });
-
-                    let info = await transporter.sendMail({
-                        from: `"Osiris Agtech 🌱" <${gmailUser}>`,
-                        to: args.email,
-                        subject: 'Adicionado colaborador ✔',
-                        html: 'Você foi adicionado a conta ' + contaInvited.nome + ' com o cargo ' + cargoInvited.cargo + '. \n\nAcesse ao aplicativo Osiris com seu e-mail e a senha "' + password + '" para ter acesso.',
-                    });
-                    console.log('Message sent successfully!');
-                    console.log('Server responded with "%s"', info.response);
-                    console.log('Closing Transport');
-                    transporter.close();
-
-                    const infoAcesso = { ...usuario, conta: conectaContaCargoUser.conta, cargo: conectaContaCargoUser.cargo };
-                    console.log(infoAcesso);
-                    return infoAcesso;
-                    }
+                    return mutationResult.infoAcesso;
                 }
             }
         )

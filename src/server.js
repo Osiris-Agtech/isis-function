@@ -1,4 +1,5 @@
 const http = require('node:http');
+require('dotenv').config();
 const { createYoga } = require('graphql-yoga');
 const { makeSchema } = require('@nexus/schema');
 const { nexusPrisma } = require('nexus-plugin-prisma');
