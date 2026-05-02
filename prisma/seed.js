@@ -4,47 +4,31 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Iniciando seed de dados base...');
 
-  // 1. Criar cargo Owner (idempotente)
-  const cargoOwner = await prisma.cargo.upsert({
-    where: { id: 1 },
-    update: {},
-    create: {
-      id: 1,
-      cargo: 'Owner',
-    },
-  });
-  console.log('✓ Cargo Owner:', cargoOwner);
-
-  // 2. Criar SNutritivas base (IDs 12-16) com dados mínimos
-  // Esses são placeholders - ajuste os valores conforme necessário
-  const solucoesBase = [
-    { id: 12, nome: 'Solução A', c_eletrica: 1.0 },
-    { id: 13, nome: 'Solução B', c_eletrica: 1.2 },
-    { id: 14, nome: 'Solução C', c_eletrica: 1.5 },
-    { id: 15, nome: 'Solução D', c_eletrica: 1.8 },
-    { id: 16, nome: 'Solução E', c_eletrica: 2.0 },
+  // 1. Criar cargos base (idempotente)
+  const cargosBase = [
+    { id: 1, cargo: 'Owner' },
+    { id: 2, cargo: 'Administrator' },
+    { id: 3, cargo: 'Funcionario' },
+    { id: 4, cargo: 'Convidado' },
   ];
 
-  for (const solucao of solucoesBase) {
-    const existing = await prisma.sNutritiva.findUnique({
-      where: { id: solucao.id }
+  const cargosCriados = {};
+
+  for (const cargoBase of cargosBase) {
+    const cargo = await prisma.cargo.upsert({
+      where: { id: cargoBase.id },
+      update: { cargo: cargoBase.cargo },
+      create: {
+        id: cargoBase.id,
+        cargo: cargoBase.cargo,
+      },
     });
 
-    if (!existing) {
-      await prisma.sNutritiva.create({
-        data: {
-          id: solucao.id,
-          nome: solucao.nome,
-          c_eletrica: solucao.c_eletrica,
-        }
-      });
-      console.log(`✓ SNutritiva criada: id=${solucao.id}, nome=${solucao.nome}`);
-    } else {
-      console.log(`- SNutritiva já existe: id=${solucao.id}`);
-    }
+    cargosCriados[cargoBase.cargo] = cargo;
+    console.log(`✓ Cargo ${cargoBase.cargo}:`, cargo);
   }
 
-  // 3. Criar permissões (idempotente)
+  // 2. Criar permissões (idempotente)
   const permissoes = [
     'caderno-campo-view',
     'caderno-campo-edit',
@@ -82,7 +66,7 @@ async function main() {
     }
   }
 
-  // 4. Criar nutrientes base (idempotente)
+  // 3. Criar nutrientes base (idempotente)
   const nutrientesBase = [
     { sigla: 'N', nome: 'Nitrogenio' },
     { sigla: 'P', nome: 'Fosforo' },
@@ -120,32 +104,86 @@ async function main() {
     }
   }
 
-  // 5. Associar todas as permissões ao cargo Owner (status: true)
-  console.log('\nAssociando permissões ao cargo Owner...');
+  // 4. Associar permissões por cargo (idempotente + convergente)
+  console.log('\nAssociando permissões por cargo...');
 
-  for (const permissao of permissoesCriadas) {
-    const existing = await prisma.cargos_Permissoes.findFirst({
-      where: {
-        fk_cargos_id: cargoOwner.id,
-        fk_permissoes_id: permissao.id,
-      },
-    });
+  const permissoesPorCargo = {
+    Owner: {
+      allow: permissoes,
+    },
+    Administrator: {
+      deny: [
+        'gerencia-equipe-view',
+        'gerencia-equipe-edit',
+      ],
+    },
+    Funcionario: {
+      allow: [
+        'caderno-campo-view',
+        'caderno-campo-edit',
+        'reservatorio-view',
+        'reservatorio-edit',
+        'solucao-nutritiva-view',
+        'solucao-nutritiva-edit',
+        'area-cultivo-N1-view',
+        'area-cultivo-N1-edit',
+        'area-cultivo-N2-view',
+        'area-cultivo-N2-edit',
+        'area-cultivo-N3-view',
+        'area-cultivo-N3-edit',
+      ],
+    },
+    Convidado: {
+      allow: permissoes.filter((nome) => nome.endsWith('-view')),
+    },
+  };
 
-    if (!existing) {
-      await prisma.cargos_Permissoes.create({
-        data: {
-          fk_cargos_id: cargoOwner.id,
+  for (const [nomeCargo, regra] of Object.entries(permissoesPorCargo)) {
+    const cargo = cargosCriados[nomeCargo];
+
+    if (!cargo) {
+      throw new Error(`Cargo não encontrado no seed: ${nomeCargo}`);
+    }
+
+    const allowSet = new Set(regra.allow || []);
+    const denySet = new Set(regra.deny || []);
+
+    for (const permissao of permissoesCriadas) {
+      let statusEsperado = false;
+
+      if (allowSet.size > 0) {
+        statusEsperado = allowSet.has(permissao.nome);
+      } else if (denySet.size > 0) {
+        statusEsperado = !denySet.has(permissao.nome);
+      }
+
+      const existing = await prisma.cargos_Permissoes.findFirst({
+        where: {
+          fk_cargos_id: cargo.id,
           fk_permissoes_id: permissao.id,
-          status: true,
         },
       });
-      console.log(`✓ Permissão ${permissao.nome} associada ao Owner`);
-    } else {
-      console.log(`- Permissão ${permissao.nome} já associada ao Owner`);
+
+      if (!existing) {
+        await prisma.cargos_Permissoes.create({
+          data: {
+            fk_cargos_id: cargo.id,
+            fk_permissoes_id: permissao.id,
+            status: statusEsperado,
+          },
+        });
+        console.log(`✓ Permissão ${permissao.nome} associada ao cargo ${nomeCargo} (status=${statusEsperado})`);
+      } else {
+        await prisma.cargos_Permissoes.update({
+          where: { id: existing.id },
+          data: { status: statusEsperado },
+        });
+        console.log(`- Permissão ${permissao.nome} atualizada no cargo ${nomeCargo} (status=${statusEsperado})`);
+      }
     }
   }
 
-  // 6. Criar fertilizantes base e vincular nutrientes (idempotente)
+  // 5. Criar fertilizantes base e vincular nutrientes (idempotente)
   const fertilizantesBase = [
     { nome: 'Nitrato de Cálcio', nutrientes: [{ sigla: 'N', teor: 15.0 }, { sigla: 'Ca', teor: 20.0 }] },
     { nome: 'Nitrato de Potássio', nutrientes: [{ sigla: 'N', teor: 13.0 }, { sigla: 'K', teor: 36.6 }] },
