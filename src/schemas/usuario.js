@@ -4,7 +4,6 @@ const Usuario = objectType({
   name: 'Usuario',
   definition(t) {
     t.model.id()
-    t.model.senha()
     t.model.created_at()
     t.model.email()
     t.model.ativo()
