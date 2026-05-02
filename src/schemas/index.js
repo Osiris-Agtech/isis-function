@@ -32,6 +32,7 @@ const {
 } = require('./mutation')
 const DateTime = require('./datetime')
 const LoginResponse = require('./loginResponse')
+const DescadastroUsuarioContaResponse = require('./descadastroUsuarioContaResponse')
 const {
   HomeResumo,
   HomeTarefas,
@@ -159,4 +160,5 @@ module.exports = {
   UpdateFertilizanteInput,
   FertilizanteNutrienteInput,
   LoginResponse,
+  DescadastroUsuarioContaResponse,
 }

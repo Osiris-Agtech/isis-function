@@ -228,6 +228,55 @@ async function assertContaInTenantScope(prisma, authUserId, contaId) {
     return contaId;
 }
 
+async function ensureContaUserManagementScope(prisma, authUserId, contaId) {
+    if (!Number.isInteger(contaId) || contaId <= 0) {
+        throw new DomainError('VALIDATION_ERROR', 'contaId inválido');
+    }
+
+    const authorizedContaIds = await getAuthorizedContaIds(prisma, authUserId);
+    if (!authorizedContaIds.includes(contaId)) {
+        throw new DomainError('TENANT_SCOPE_VIOLATION', 'contaId fora do escopo do usuário autenticado');
+    }
+}
+
+async function assertNotRemovingLastOwner(prisma, contaId, userId) {
+    const ownerCargo = await prisma.cargo.findFirst({
+        where: {
+            cargo: 'Dono',
+        },
+        select: {
+            id: true,
+        },
+    });
+
+    if (!ownerCargo) {
+        return;
+    }
+
+    const targetVinculosOwner = await prisma.conectaConta.count({
+        where: {
+            fk_contas_id: contaId,
+            fk_usuarios_id: userId,
+            fk_cargos_id: ownerCargo.id,
+        },
+    });
+
+    if (targetVinculosOwner === 0) {
+        return;
+    }
+
+    const ownersCount = await prisma.conectaConta.count({
+        where: {
+            fk_contas_id: contaId,
+            fk_cargos_id: ownerCargo.id,
+        },
+    });
+
+    if (ownersCount <= 1) {
+        throw new DomainError('LAST_OWNER_BLOCKED', 'Não é permitido remover o último Dono da conta');
+    }
+}
+
 function isFertilizanteVisibleForTenant(fertilizante, authorizedContaIds) {
     return (
         fertilizante.origin === 'SYSTEM' ||
@@ -1010,6 +1059,48 @@ t.field(
                     });
 
                     return usuarioUpdate;
+                }
+            }
+        )
+
+        t.field(
+            "descadastrarUsuarioDaConta",
+            {
+                type: "DescadastroUsuarioContaResponse",
+                args: {
+                    userId: nonNull(intArg()),
+                    contaId: nonNull(intArg()),
+                },
+                resolve: async (_, args, { prisma, authUserId }) => {
+                    if (!Number.isInteger(args.userId) || args.userId <= 0) {
+                        throw new DomainError('VALIDATION_ERROR', 'userId inválido');
+                    }
+
+                    await ensureContaUserManagementScope(prisma, authUserId, args.contaId);
+                    await assertNotRemovingLastOwner(prisma, args.contaId, args.userId);
+
+                    const removed = await prisma.conectaConta.deleteMany({
+                        where: {
+                            fk_usuarios_id: args.userId,
+                            fk_contas_id: args.contaId,
+                        },
+                    });
+
+                    if (removed.count === 0) {
+                        return {
+                            status: 'VINCULO_INEXISTENTE',
+                            mensagem: 'Usuário já não está vinculado a esta conta',
+                            usuarioId: args.userId,
+                            contaId: args.contaId,
+                        };
+                    }
+
+                    return {
+                        status: 'REMOVIDO',
+                        mensagem: 'Usuário descadastrado da conta com sucesso',
+                        usuarioId: args.userId,
+                        contaId: args.contaId,
+                    };
                 }
             }
         )
