@@ -10,6 +10,49 @@ const {
     InfrastructureError,
 } = require('../errors/apiErrors');
 
+const APP_BRAND_NAME = 'Aplicativo de Gestão de Cultivos - UFMT';
+
+function buildEmailLayout({ heading, intro, details, cta }) {
+    const detailsRows = Array.isArray(details)
+        ? details
+            .filter((item) => item && item.label && item.value)
+            .map((item) => `<li><strong>${item.label}:</strong> ${item.value}</li>`)
+            .join('')
+        : '';
+
+    return `
+        <div style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.5;">
+            <h2 style="margin: 0 0 8px 0;">${APP_BRAND_NAME}</h2>
+            <h3 style="margin: 0 0 16px 0; color: #0f766e;">${heading}</h3>
+            <p style="margin: 0 0 16px 0;">${intro}</p>
+            ${detailsRows ? `<ul style="margin: 0 0 16px 20px; padding: 0;">${detailsRows}</ul>` : ''}
+            ${cta ? `<p style="margin: 0 0 16px 0;"><strong>${cta}</strong></p>` : ''}
+            <p style="margin: 0; color: #4b5563;">Mensagem automática do ${APP_BRAND_NAME}.</p>
+        </div>
+    `;
+}
+
+function buildContributorInviteEmailContent({ accessEmail, contaNome, cargoNome, senhaTemporaria }) {
+    const details = [
+        { label: 'Conta', value: contaNome },
+        { label: 'Cargo', value: cargoNome },
+        { label: 'E-mail de acesso', value: accessEmail },
+    ];
+
+    if (senhaTemporaria) {
+        details.push({ label: 'Senha temporária', value: senhaTemporaria });
+    }
+
+    return buildEmailLayout({
+        heading: senhaTemporaria ? 'Convite de colaborador' : 'Acesso atualizado',
+        intro: senhaTemporaria
+            ? 'Seu acesso de colaborador foi criado com sucesso.'
+            : 'Seu acesso de colaborador foi atualizado com sucesso.',
+        details,
+        cta: 'Acesse o aplicativo para entrar e gerenciar seus cultivos.',
+    });
+}
+
 function normalizeName(name) {
     if (typeof name !== 'string') {
         return '';
@@ -58,7 +101,7 @@ function enqueueInviteEmailDispatch(prisma, payload) {
     const attemptSend = async (attempt) => {
         try {
             const info = await sendInviteEmail(payload.gmailConfig, {
-                from: `"Osiris Agtech 🌱" <${payload.gmailConfig.gmailUser}>`,
+                from: `"${APP_BRAND_NAME}" <${payload.gmailConfig.gmailUser}>`,
                 to: payload.to,
                 subject: payload.subject,
                 html: payload.html,
@@ -1318,7 +1361,7 @@ t.field(
 
                     try {
                         let info = await transporter.sendMail({
-                            from: `"Osiris Agtech 🌱" <${gmailUser}>`,
+                            from: `"${APP_BRAND_NAME}" <${gmailUser}>`,
                             to: args.email,
                             subject: args.subject,
                             html: args.html,
@@ -1469,7 +1512,12 @@ t.field(
                                     emailPayload: {
                                         to: args.email,
                                         subject: 'Convite de colaborador reenviado ✔',
-                                        html: 'Seu acesso à conta ' + contaInvited.nome + ' foi atualizado para o cargo ' + cargoInvited.cargo + '.\n\nAcesse ao aplicativo Osiris para mais informações.',
+                                        html: buildContributorInviteEmailContent({
+                                            accessEmail: args.email,
+                                            contaNome: contaInvited.nome,
+                                            cargoNome: cargoInvited.cargo,
+                                            senhaTemporaria: null,
+                                        }),
                                     },
                                 };
                             } else {
@@ -1502,7 +1550,12 @@ t.field(
                                     emailPayload: {
                                         to: args.email,
                                         subject: 'Adicionado colaborador ✔',
-                                        html: 'Você foi adicionado a conta ' + contaInvited.nome + ' com o cargo ' + cargoInvited.cargo + '.\n\nAcesse ao aplicativo Osiris para mais informações.',
+                                        html: buildContributorInviteEmailContent({
+                                            accessEmail: args.email,
+                                            contaNome: contaInvited.nome,
+                                            cargoNome: cargoInvited.cargo,
+                                            senhaTemporaria: null,
+                                        }),
                                     },
                                 };
                             }
@@ -1703,7 +1756,12 @@ t.field(
                                 emailPayload: {
                                     to: args.email,
                                     subject: 'Adicionado colaborador ✔',
-                                    html: 'Você foi adicionado a conta ' + contaInvited.nome + ' com o cargo ' + cargoInvited.cargo + '.\n\nAcesse ao aplicativo Osiris com seu e-mail e a senha "' + password + '" para ter acesso.',
+                                    html: buildContributorInviteEmailContent({
+                                        accessEmail: args.email,
+                                        contaNome: contaInvited.nome,
+                                        cargoNome: cargoInvited.cargo,
+                                        senhaTemporaria: password,
+                                    }),
                                 },
                             };
                             createdResources.shouldCompensate = false;
