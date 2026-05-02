@@ -37,6 +37,15 @@ jobs:
       - name: Apply seeds (optional)
         run: npx prisma db seed || echo "No seed or seed failed, continuing"
 
+      - name: Create Functions .env from GitHub Secrets
+        run: |
+          cat <<EOF > .env
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+          GMAIL_USER=${{ secrets.GMAIL_USER }}
+          GMAIL_PASSWORD=${{ secrets.GMAIL_PASSWORD }}
+          NODE_ENV=production
+          EOF
+
       - name: Deploy to Firebase Functions
         uses: w9jds/firebase-action@master
         env:
