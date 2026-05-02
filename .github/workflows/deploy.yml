@@ -41,6 +41,8 @@ jobs:
         run: |
           cat <<EOF > .env
           DATABASE_URL=${{ secrets.DATABASE_URL }}
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          JWT_EXPIRES_IN=${{ secrets.JWT_EXPIRES_IN }}
           GMAIL_USER=${{ secrets.GMAIL_USER }}
           GMAIL_PASSWORD=${{ secrets.GMAIL_PASSWORD }}
           NODE_ENV=production
