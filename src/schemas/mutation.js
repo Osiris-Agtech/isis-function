@@ -476,33 +476,13 @@ async function createProtocolWithStructuredPayload(prisma, protocolInput) {
 
         const phaseIdByKey = new Map();
         for (const fase of protocolInput.fases) {
-            const protocoloWithNewPhase = await tx.protocolo.update({
-                where: { id: protocolo.id },
-                data: {
-                    fases: {
-                        create: {
-                            nome: fase.nome,
-                            descricao: fase.descricao,
-                            duracao_dias: fase.duracao_dias,
-                            conta: {
-                                connect: {
-                                    id: protocolInput.contaId,
-                                },
-                            },
-                        },
-                    },
-                },
-                include: {
-                    fases: {
-                        orderBy: {
-                            id: 'desc',
-                        },
-                        take: 1,
-                    },
-                },
-            });
+            const insertedRows = await tx.$queryRaw`
+                INSERT INTO fases (nome, descricao, duracao_dias, fk_conta_id, fk_protocolo_id)
+                VALUES (${fase.nome}, ${fase.descricao}, ${fase.duracao_dias}, ${protocolInput.contaId}, ${protocolo.id})
+                RETURNING id
+            `;
 
-            const createdPhaseId = protocoloWithNewPhase.fases?.[0]?.id;
+            const createdPhaseId = insertedRows?.[0]?.id;
             if (!Number.isInteger(createdPhaseId)) {
                 throw new InfrastructureError('INTERNAL_SERVER_ERROR', 'Falha ao criar fase do protocolo');
             }
@@ -584,33 +564,13 @@ async function updateProtocolWithStructuredPayload(prisma, protocolInput) {
 
         const phaseIdByKey = new Map();
         for (const fase of protocolInput.fases) {
-            const protocoloWithNewPhase = await tx.protocolo.update({
-                where: { id: protocolInput.id },
-                data: {
-                    fases: {
-                        create: {
-                            nome: fase.nome,
-                            descricao: fase.descricao,
-                            duracao_dias: fase.duracao_dias,
-                            conta: {
-                                connect: {
-                                    id: protocolInput.contaId,
-                                },
-                            },
-                        },
-                    },
-                },
-                include: {
-                    fases: {
-                        orderBy: {
-                            id: 'desc',
-                        },
-                        take: 1,
-                    },
-                },
-            });
+            const insertedRows = await tx.$queryRaw`
+                INSERT INTO fases (nome, descricao, duracao_dias, fk_conta_id, fk_protocolo_id)
+                VALUES (${fase.nome}, ${fase.descricao}, ${fase.duracao_dias}, ${protocolInput.contaId}, ${protocolInput.id})
+                RETURNING id
+            `;
 
-            const createdPhaseId = protocoloWithNewPhase.fases?.[0]?.id;
+            const createdPhaseId = insertedRows?.[0]?.id;
             if (!Number.isInteger(createdPhaseId)) {
                 throw new InfrastructureError('INTERNAL_SERVER_ERROR', 'Falha ao recriar fase do protocolo');
             }
