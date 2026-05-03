@@ -9,6 +9,8 @@ const {
 const MetricasLotesService = require('../services/metricasLotesService')
 const MetricasAgendaService = require('../services/metricasAgendaService')
 
+const BUILD_INFO = `isis-api:${process.env.K_REVISION || 'local'}:${process.env.GITHUB_SHA || 'no-sha'}`
+
 async function getAuthorizedContaIds(prisma, authUserId) {
   if (!Number.isInteger(authUserId)) {
     throw new AuthenticationError('Autenticação obrigatória para consultar fertilizantes por conta')
@@ -86,6 +88,10 @@ function buildSolucaoTenantScopeWhere(authorizedContaIds) {
 const Query = queryType({
   name: 'Query',
   definition(t) {
+    t.string('buildInfo', {
+      resolve: () => BUILD_INFO,
+    })
+
     t.crud.areas({
       filtering: true,
       ordering: true
