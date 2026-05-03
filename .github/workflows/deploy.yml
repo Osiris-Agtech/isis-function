@@ -14,6 +14,8 @@ jobs:
       GMAIL_USER: ${{ secrets.GMAIL_USER }}
       GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
       NODE_ENV: production
+      FIREBASE_PROJECT_ID: calculadora-a1d21
+      GRAPHQL_ENDPOINT: https://graphqlhandler-bpmfjim7tq-uc.a.run.app/graphql
 
     steps:
       - name: Checkout
@@ -53,4 +55,44 @@ jobs:
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         with:
-          args: deploy --only functions --non-interactive --force --project calculadora-a1d21
+          args: deploy --only functions --non-interactive --force --project ${{ env.FIREBASE_PROJECT_ID }}
+
+      - name: Validate GraphQL schema on production endpoint
+        run: |
+          node <<'EOF'
+          const endpoint = process.env.GRAPHQL_ENDPOINT;
+          const expectedField = 'createProtocoloEstruturado';
+
+          async function run() {
+            const response = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                query: '{ __type(name: "Mutation") { fields { name } } }',
+              }),
+            });
+
+            if (!response.ok) {
+              throw new Error(`GraphQL introspection failed with HTTP ${response.status}`);
+            }
+
+            const payload = await response.json();
+            const fields = payload?.data?.__type?.fields;
+
+            if (!Array.isArray(fields)) {
+              throw new Error('GraphQL introspection returned an invalid payload');
+            }
+
+            const fieldNames = fields.map((field) => field.name);
+            if (!fieldNames.includes(expectedField)) {
+              throw new Error(`Missing mutation \"${expectedField}\" on endpoint ${endpoint}`);
+            }
+
+            console.log(`Validated mutation \"${expectedField}\" on ${endpoint}`);
+          }
+
+          run().catch((error) => {
+            console.error(error.message);
+            process.exit(1);
+          });
+          EOF
