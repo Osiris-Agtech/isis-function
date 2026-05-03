@@ -474,28 +474,41 @@ async function createProtocolWithStructuredPayload(prisma, protocolInput) {
             },
         });
 
-        const createdPhases = await Promise.all(protocolInput.fases.map((fase) => tx.fase.create({
-            data: {
-                nome: fase.nome,
-                descricao: fase.descricao,
-                duracao_dias: fase.duracao_dias,
-                conta: {
-                    connect: {
-                        id: protocolInput.contaId,
-                    }
-                },
-                protocolo: {
-                    connect: {
-                        id: protocolo.id,
-                    }
-                }
-            }
-        })));
-
         const phaseIdByKey = new Map();
-        protocolInput.fases.forEach((fase, index) => {
-            phaseIdByKey.set(fase.key, createdPhases[index].id);
-        });
+        for (const fase of protocolInput.fases) {
+            const protocoloWithNewPhase = await tx.protocolo.update({
+                where: { id: protocolo.id },
+                data: {
+                    fases: {
+                        create: {
+                            nome: fase.nome,
+                            descricao: fase.descricao,
+                            duracao_dias: fase.duracao_dias,
+                            conta: {
+                                connect: {
+                                    id: protocolInput.contaId,
+                                },
+                            },
+                        },
+                    },
+                },
+                include: {
+                    fases: {
+                        orderBy: {
+                            id: 'desc',
+                        },
+                        take: 1,
+                    },
+                },
+            });
+
+            const createdPhaseId = protocoloWithNewPhase.fases?.[0]?.id;
+            if (!Number.isInteger(createdPhaseId)) {
+                throw new InfrastructureError('INTERNAL_SERVER_ERROR', 'Falha ao criar fase do protocolo');
+            }
+
+            phaseIdByKey.set(fase.key, createdPhaseId);
+        }
 
         await tx.acao.createMany({
             data: protocolInput.acoes.map((acao) => ({
@@ -569,28 +582,41 @@ async function updateProtocolWithStructuredPayload(prisma, protocolInput) {
             }
         });
 
-        const createdPhases = await Promise.all(protocolInput.fases.map((fase) => tx.fase.create({
-            data: {
-                nome: fase.nome,
-                descricao: fase.descricao,
-                duracao_dias: fase.duracao_dias,
-                conta: {
-                    connect: {
-                        id: protocolInput.contaId,
-                    }
-                },
-                protocolo: {
-                    connect: {
-                        id: protocolInput.id,
-                    }
-                }
-            }
-        })));
-
         const phaseIdByKey = new Map();
-        protocolInput.fases.forEach((fase, index) => {
-            phaseIdByKey.set(fase.key, createdPhases[index].id);
-        });
+        for (const fase of protocolInput.fases) {
+            const protocoloWithNewPhase = await tx.protocolo.update({
+                where: { id: protocolInput.id },
+                data: {
+                    fases: {
+                        create: {
+                            nome: fase.nome,
+                            descricao: fase.descricao,
+                            duracao_dias: fase.duracao_dias,
+                            conta: {
+                                connect: {
+                                    id: protocolInput.contaId,
+                                },
+                            },
+                        },
+                    },
+                },
+                include: {
+                    fases: {
+                        orderBy: {
+                            id: 'desc',
+                        },
+                        take: 1,
+                    },
+                },
+            });
+
+            const createdPhaseId = protocoloWithNewPhase.fases?.[0]?.id;
+            if (!Number.isInteger(createdPhaseId)) {
+                throw new InfrastructureError('INTERNAL_SERVER_ERROR', 'Falha ao recriar fase do protocolo');
+            }
+
+            phaseIdByKey.set(fase.key, createdPhaseId);
+        }
 
         await tx.acao.createMany({
             data: protocolInput.acoes.map((acao) => ({
