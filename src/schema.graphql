@@ -1600,6 +1600,13 @@ input DecimalNullableFilter {
   notIn: [Decimal!]
 }
 
+type DescadastroUsuarioContaResponse {
+  contaId: Int!
+  mensagem: String
+  status: String!
+  usuarioId: Int!
+}
+
 type DesempenhoAgendaItem {
   agendaId: Int
   data: String
@@ -1643,17 +1650,6 @@ type Fase {
   descricao: String
   duracao_dias: Int!
   id: Int!
-  nome: String
-  updated_at: DateTime
-}
-
-input FaseCreateInput {
-  acaos: AcaoCreateNestedManyWithoutFaseInput
-  conta: ContaCreateNestedOneWithoutFasesInput
-  created_at: DateTime
-  deleted_at: DateTime
-  descricao: String
-  duracao_dias: Int!
   nome: String
   updated_at: DateTime
 }
@@ -2894,7 +2890,7 @@ type Mutation {
   createOneCargo(data: CargoCreateInput!): Cargo!
   createOneConcentrada(data: ConcentradaCreateInput!): Concentrada!
   createOneCultura(data: CulturaCreateInput!): Cultura!
-  createOneFase(data: FaseCreateInput!): Fase!
+  createOneFase(contaId: Int!, descricao: String, duracao_dias: Int!, nome: String!, protocoloId: Int!): Fase
   createOneLocalizacao(bairro: String, cep: String, cidade: String, complemento: String, endereco: String, estado: String, numero: String, pais: String): Localizacao
   createOneLote(
     """String de data e hora no formato ISO-8601"""
@@ -2917,11 +2913,12 @@ type Mutation {
   ): Lote
   createOneNotificacao(data: NotificacaoCreateInput!): Notificacao!
   createOnePessoa(data: PessoaCreateInput!): Pessoa!
-  createOneProtocolo(data: ProtocoloCreateInput!): Protocolo!
   createOneReservatorio(data: ReservatorioCreateInput!): Reservatorio!
   createOneSNutritiva(data: SNutritivaCreateInput!): SNutritiva!
   createOneSetor(data: SetorCreateInput!): Setor!
+  createProtocoloEstruturado(input: String!): Protocolo
   createUserAccount(bairro: String, cep: String, cidade: String, cnpjConta: String, complemento: String, email: String!, endereco: String, estado: String, imagem: String, imagemConta: String, nivelConta: String!, nome: String!, pais: String, senha: String!, sobrenome: String!, telefone: String): Usuario
+  descadastrarUsuarioDaConta(contaId: Int!, userId: Int!): DescadastroUsuarioContaResponse
   duplicateSNutritiva(contaId: Int!, solucaoId: Int!): SNutritiva
   finalizarAgendas(agendasId: [Int!]): Int
   finalizarLotes(embalagensProduzidas: [Int!], lotesId: [Int!], plantasColhidas: [Int!]): Int
@@ -3353,21 +3350,6 @@ type Protocolo {
   updated_at: DateTime
 }
 
-input ProtocoloCreateInput {
-  acoes: AcaoCreateNestedManyWithoutProtocoloInput
-  conta: ContaCreateNestedOneWithoutProtocolosInput
-  created_at: DateTime
-  cultura: CulturaCreateNestedOneWithoutProtocolosInput
-  deleted_at: DateTime
-  descricao: String
-  implantacao: String
-  lotes: LoteCreateNestedManyWithoutProtocoloInput
-  nome: String
-  sistema_cultivo: String
-  tipo_cultura: String
-  updated_at: DateTime
-}
-
 input ProtocoloCreateManyContaInput {
   created_at: DateTime
   deleted_at: DateTime
@@ -3579,6 +3561,7 @@ type Query {
   culturas(after: CulturaWhereUniqueInput, before: CulturaWhereUniqueInput, first: Int, last: Int, orderBy: [CulturaOrderByWithRelationInput!], where: CulturaWhereInput): [Cultura!]!
   fase(where: FaseWhereUniqueInput!): Fase
   fases(after: FaseWhereUniqueInput, before: FaseWhereUniqueInput, first: Int, last: Int, orderBy: [FaseOrderByWithRelationInput!], where: FaseWhereInput): [Fase!]!
+  fasesPorProtocolo(contaId: Int!, protocoloId: Int!): [Fase]
   fertilizante(where: FertilizanteWhereUniqueInput!): Fertilizante
   fertilizantes(after: FertilizanteWhereUniqueInput, before: FertilizanteWhereUniqueInput, first: Int, last: Int, orderBy: [FertilizanteOrderByWithRelationInput!], where: FertilizanteWhereInput): [Fertilizante!]!
   fertilizantesCatalogo(contaId: Int!): [Fertilizante]
@@ -4402,7 +4385,6 @@ type Usuario {
   logs(after: LogWhereUniqueInput, before: LogWhereUniqueInput, first: Int, last: Int): [Log!]!
   nome: String
   pessoa: Pessoa
-  senha: String
 }
 
 input UsuarioCreateManyPessoaInput {
