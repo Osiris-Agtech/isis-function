@@ -3346,7 +3346,6 @@ type Protocolo {
   lotes(after: LoteWhereUniqueInput, before: LoteWhereUniqueInput, first: Int, last: Int): [Lote!]!
   nome: String
   sistema_cultivo: String
-  tipo_cultura: String
   updated_at: DateTime
 }
 
@@ -3359,7 +3358,6 @@ input ProtocoloCreateManyContaInput {
   implantacao: String
   nome: String
   sistema_cultivo: String
-  tipo_cultura: String
   updated_at: DateTime
 }
 
@@ -3377,7 +3375,6 @@ input ProtocoloCreateManyCulturaInput {
   implantacao: String
   nome: String
   sistema_cultivo: String
-  tipo_cultura: String
   updated_at: DateTime
 }
 
@@ -3442,7 +3439,6 @@ input ProtocoloCreateWithoutAcoesInput {
   lotes: LoteCreateNestedManyWithoutProtocoloInput
   nome: String
   sistema_cultivo: String
-  tipo_cultura: String
   updated_at: DateTime
 }
 
@@ -3456,7 +3452,6 @@ input ProtocoloCreateWithoutContaInput {
   lotes: LoteCreateNestedManyWithoutProtocoloInput
   nome: String
   sistema_cultivo: String
-  tipo_cultura: String
   updated_at: DateTime
 }
 
@@ -3470,7 +3465,6 @@ input ProtocoloCreateWithoutCulturaInput {
   lotes: LoteCreateNestedManyWithoutProtocoloInput
   nome: String
   sistema_cultivo: String
-  tipo_cultura: String
   updated_at: DateTime
 }
 
@@ -3484,7 +3478,6 @@ input ProtocoloCreateWithoutLotesInput {
   implantacao: String
   nome: String
   sistema_cultivo: String
-  tipo_cultura: String
   updated_at: DateTime
 }
 
@@ -3512,7 +3505,6 @@ input ProtocoloOrderByWithRelationInput {
   lotes: LoteOrderByRelationAggregateInput
   nome: SortOrder
   sistema_cultivo: SortOrder
-  tipo_cultura: SortOrder
   updated_at: SortOrder
 }
 
@@ -3533,7 +3525,6 @@ input ProtocoloWhereInput {
   lotes: LoteListRelationFilter
   nome: StringNullableFilter
   sistema_cultivo: StringNullableFilter
-  tipo_cultura: StringNullableFilter
   updated_at: DateTimeNullableFilter
 }
 

@@ -6,7 +6,6 @@ const Protocolo = objectType({
     t.model.id()
     t.model.nome()
     t.model.descricao()
-    t.model.tipo_cultura()
     t.model.sistema_cultivo()
     t.model.implantacao()
     t.model.created_at()

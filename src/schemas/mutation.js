@@ -441,7 +441,6 @@ function parseStructuredProtocolInput(input, requireId) {
         contaId: payload.contaId,
         nome: payload.nome.trim(),
         descricao: typeof payload.descricao === 'string' ? payload.descricao : null,
-        tipo_cultura: typeof payload.tipo_cultura === 'string' ? payload.tipo_cultura : null,
         sistema_cultivo: typeof payload.sistema_cultivo === 'string' ? payload.sistema_cultivo : null,
         implantacao: typeof payload.implantacao === 'string' ? payload.implantacao : null,
         culturaId: Number.isInteger(payload.culturaId) ? payload.culturaId : null,
@@ -456,7 +455,6 @@ async function createProtocolWithStructuredPayload(prisma, protocolInput) {
             data: {
                 nome: protocolInput.nome,
                 descricao: protocolInput.descricao,
-                tipo_cultura: protocolInput.tipo_cultura,
                 sistema_cultivo: protocolInput.sistema_cultivo,
                 implantacao: protocolInput.implantacao,
                 conta: {
@@ -534,16 +532,16 @@ async function updateProtocolWithStructuredPayload(prisma, protocolInput) {
         await tx.acao.deleteMany({
             where: { fk_protocolo_id: protocolInput.id },
         });
-        await tx.fase.deleteMany({
-            where: { fk_protocolo_id: protocolInput.id },
-        });
+        await tx.$executeRaw`
+            DELETE FROM fases
+            WHERE fk_protocolo_id = ${protocolInput.id}
+        `;
 
         await tx.protocolo.update({
             where: { id: protocolInput.id },
             data: {
                 nome: protocolInput.nome,
                 descricao: protocolInput.descricao,
-                tipo_cultura: protocolInput.tipo_cultura,
                 sistema_cultivo: protocolInput.sistema_cultivo,
                 implantacao: protocolInput.implantacao,
                 ...(protocolInput.culturaId
@@ -2918,7 +2916,6 @@ const UpdateProtocoloInput = inputObjectType({
     t.nonNull.int('id');
     t.string('nome');
     t.string('descricao');
-    t.string('tipo_cultura');
     t.string('sistema_cultivo');
     t.string('implantacao');
     t.string('cultura');
