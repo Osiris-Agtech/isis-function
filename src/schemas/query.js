@@ -129,6 +129,43 @@ const Query = queryType({
     })
     t.crud.fase()
 
+    t.list.field('fasesPorProtocolo', {
+      type: 'Fase',
+      args: {
+        contaId: nonNull(intArg()),
+        protocoloId: nonNull(intArg()),
+      },
+      resolve: async (_, args, ctx) => {
+        await assertContaInTenantScope(ctx.prisma, ctx.authUserId, args.contaId)
+
+        const protocolo = await ctx.prisma.protocolo.findFirst({
+          where: {
+            id: args.protocoloId,
+            fk_conta_id: args.contaId,
+            deleted_at: null,
+          },
+          select: {
+            id: true,
+          },
+        })
+
+        if (!protocolo) {
+          throw new DomainError('NOT_FOUND', 'Protocolo não encontrado para listar fases')
+        }
+
+        return ctx.prisma.fase.findMany({
+          where: {
+            fk_conta_id: args.contaId,
+            fk_protocolo_id: args.protocoloId,
+            deleted_at: null,
+          },
+          orderBy: {
+            created_at: 'asc',
+          },
+        })
+      },
+    })
+
     t.crud.fertilizantes({
       filtering: true,
       ordering: true,

@@ -377,6 +377,7 @@ model Protocolo {
   conta           Conta?    @relation(fields: [fk_conta_id], references: [id])
   cultura         Cultura?  @relation(fields: [fk_cultura_id], references: [id])
   acoes           Acao[]
+  fases           Fase[]
   lotes           Lote[]
 
   @@map("protocolos")
@@ -409,9 +410,12 @@ model Fase {
   updated_at   DateTime? @default(now()) @db.Timestamp(6)
   deleted_at   DateTime? @db.Timestamp(6)
   fk_conta_id  Int?
+  fk_protocolo_id Int
   conta        Conta?    @relation(fields: [fk_conta_id], references: [id])
+  protocolo    Protocolo @relation(fields: [fk_protocolo_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   acaos        Acao[]
 
+  @@index([fk_protocolo_id], map: "idx_fases_fk_protocolo_id")
   @@map("fases")
 }
 

@@ -355,6 +355,270 @@ async function assertSolucaoInTenantScope(prisma, solucaoId, authorizedContaIds)
     return solucao.id;
 }
 
+function parseStructuredProtocolInput(input, requireId) {
+    let payload;
+    try {
+        payload = JSON.parse(input);
+    } catch (_) {
+        throw new DomainError('VALIDATION_ERROR', 'Payload de protocolo inválido');
+    }
+
+    if (!payload || typeof payload !== 'object') {
+        throw new DomainError('VALIDATION_ERROR', 'Payload de protocolo inválido');
+    }
+
+    if (requireId && !Number.isInteger(payload.id)) {
+        throw new DomainError('VALIDATION_ERROR', 'id do protocolo é obrigatório para atualização');
+    }
+
+    if (!Number.isInteger(payload.contaId) || payload.contaId <= 0) {
+        throw new DomainError('VALIDATION_ERROR', 'contaId inválido no protocolo');
+    }
+
+    if (typeof payload.nome !== 'string' || !payload.nome.trim()) {
+        throw new DomainError('VALIDATION_ERROR', 'nome do protocolo é obrigatório');
+    }
+
+    if (!Array.isArray(payload.fases) || payload.fases.length === 0) {
+        throw new DomainError('VALIDATION_ERROR', 'Informe ao menos uma fase no protocolo');
+    }
+
+    if (!Array.isArray(payload.acoes) || payload.acoes.length === 0) {
+        throw new DomainError('VALIDATION_ERROR', 'Informe ao menos uma ação no protocolo');
+    }
+
+    const faseKeys = new Set();
+    const fases = payload.fases.map((fase, index) => {
+        const key = typeof fase?.key === 'string' ? fase.key.trim() : '';
+        if (!key) {
+            throw new DomainError('VALIDATION_ERROR', `Fase ${index + 1} sem chave temporária`);
+        }
+        if (faseKeys.has(key)) {
+            throw new DomainError('VALIDATION_ERROR', `Chave de fase duplicada: ${key}`);
+        }
+        faseKeys.add(key);
+
+        if (typeof fase?.nome !== 'string' || !fase.nome.trim()) {
+            throw new DomainError('VALIDATION_ERROR', `Fase ${index + 1} com nome inválido`);
+        }
+        if (!Number.isInteger(fase?.duracao_dias) || fase.duracao_dias <= 0) {
+            throw new DomainError('VALIDATION_ERROR', `Fase ${index + 1} com duração inválida`);
+        }
+
+        return {
+            key,
+            nome: fase.nome.trim(),
+            descricao: typeof fase?.descricao === 'string' ? fase.descricao : null,
+            duracao_dias: fase.duracao_dias,
+        };
+    });
+
+    const acoes = payload.acoes.map((acao, index) => {
+        if (typeof acao?.titulo !== 'string' || !acao.titulo.trim()) {
+            throw new DomainError('VALIDATION_ERROR', `Ação ${index + 1} com título inválido`);
+        }
+        if (!Number.isInteger(acao?.duracao_dias) || acao.duracao_dias <= 0) {
+            throw new DomainError('VALIDATION_ERROR', `Ação ${index + 1} com duração inválida`);
+        }
+
+        const phaseKey = typeof acao?.phaseKey === 'string' ? acao.phaseKey.trim() : '';
+        if (!phaseKey || !faseKeys.has(phaseKey)) {
+            throw new DomainError('CROSS_PROTOCOL_PHASE_LINK', `Ação ${index + 1} referencia fase inválida para o protocolo`);
+        }
+
+        return {
+            titulo: acao.titulo.trim(),
+            descricao: typeof acao?.descricao === 'string' ? acao.descricao : null,
+            alerta: acao?.alerta ?? true,
+            duracao_dias: acao.duracao_dias,
+            duracao_dias_real: Number.isInteger(acao?.duracao_dias_real) ? acao.duracao_dias_real : null,
+            phaseKey,
+        };
+    });
+
+    return {
+        id: payload.id,
+        contaId: payload.contaId,
+        nome: payload.nome.trim(),
+        descricao: typeof payload.descricao === 'string' ? payload.descricao : null,
+        tipo_cultura: typeof payload.tipo_cultura === 'string' ? payload.tipo_cultura : null,
+        sistema_cultivo: typeof payload.sistema_cultivo === 'string' ? payload.sistema_cultivo : null,
+        implantacao: typeof payload.implantacao === 'string' ? payload.implantacao : null,
+        culturaId: Number.isInteger(payload.culturaId) ? payload.culturaId : null,
+        fases,
+        acoes,
+    };
+}
+
+async function createProtocolWithStructuredPayload(prisma, protocolInput) {
+    return prisma.$transaction(async (tx) => {
+        const protocolo = await tx.protocolo.create({
+            data: {
+                nome: protocolInput.nome,
+                descricao: protocolInput.descricao,
+                tipo_cultura: protocolInput.tipo_cultura,
+                sistema_cultivo: protocolInput.sistema_cultivo,
+                implantacao: protocolInput.implantacao,
+                conta: {
+                    connect: {
+                        id: protocolInput.contaId,
+                    }
+                },
+                ...(protocolInput.culturaId ? {
+                    cultura: {
+                        connect: {
+                            id: protocolInput.culturaId,
+                        }
+                    }
+                } : {}),
+            },
+        });
+
+        const createdPhases = await Promise.all(protocolInput.fases.map((fase) => tx.fase.create({
+            data: {
+                nome: fase.nome,
+                descricao: fase.descricao,
+                duracao_dias: fase.duracao_dias,
+                conta: {
+                    connect: {
+                        id: protocolInput.contaId,
+                    }
+                },
+                protocolo: {
+                    connect: {
+                        id: protocolo.id,
+                    }
+                }
+            }
+        })));
+
+        const phaseIdByKey = new Map();
+        protocolInput.fases.forEach((fase, index) => {
+            phaseIdByKey.set(fase.key, createdPhases[index].id);
+        });
+
+        await tx.acao.createMany({
+            data: protocolInput.acoes.map((acao) => ({
+                titulo: acao.titulo,
+                descricao: acao.descricao,
+                alerta: acao.alerta,
+                duracao_dias: acao.duracao_dias,
+                duracao_dias_real: acao.duracao_dias_real,
+                fk_protocolo_id: protocolo.id,
+                fk_fase_id: phaseIdByKey.get(acao.phaseKey),
+            })),
+        });
+
+        return tx.protocolo.findUnique({
+            where: { id: protocolo.id },
+            include: {
+                cultura: true,
+                acoes: {
+                    include: {
+                        fase: true,
+                    }
+                },
+                lotes: true,
+            },
+        });
+    });
+}
+
+async function updateProtocolWithStructuredPayload(prisma, protocolInput) {
+    return prisma.$transaction(async (tx) => {
+        const protocoloAtual = await tx.protocolo.findUnique({
+            where: { id: protocolInput.id },
+            select: { id: true, fk_conta_id: true, deleted_at: true },
+        });
+
+        if (!protocoloAtual || protocoloAtual.deleted_at) {
+            throw new DomainError('NOT_FOUND', 'Protocolo não encontrado');
+        }
+        if (protocoloAtual.fk_conta_id !== protocolInput.contaId) {
+            throw new DomainError('TENANT_SCOPE_VIOLATION', 'Protocolo fora do escopo da conta');
+        }
+
+        await tx.acao.deleteMany({
+            where: { fk_protocolo_id: protocolInput.id },
+        });
+        await tx.fase.deleteMany({
+            where: { fk_protocolo_id: protocolInput.id },
+        });
+
+        await tx.protocolo.update({
+            where: { id: protocolInput.id },
+            data: {
+                nome: protocolInput.nome,
+                descricao: protocolInput.descricao,
+                tipo_cultura: protocolInput.tipo_cultura,
+                sistema_cultivo: protocolInput.sistema_cultivo,
+                implantacao: protocolInput.implantacao,
+                ...(protocolInput.culturaId
+                    ? {
+                        cultura: {
+                            connect: {
+                                id: protocolInput.culturaId,
+                            }
+                        }
+                    }
+                    : {
+                        cultura: {
+                            disconnect: true,
+                        }
+                    }),
+            }
+        });
+
+        const createdPhases = await Promise.all(protocolInput.fases.map((fase) => tx.fase.create({
+            data: {
+                nome: fase.nome,
+                descricao: fase.descricao,
+                duracao_dias: fase.duracao_dias,
+                conta: {
+                    connect: {
+                        id: protocolInput.contaId,
+                    }
+                },
+                protocolo: {
+                    connect: {
+                        id: protocolInput.id,
+                    }
+                }
+            }
+        })));
+
+        const phaseIdByKey = new Map();
+        protocolInput.fases.forEach((fase, index) => {
+            phaseIdByKey.set(fase.key, createdPhases[index].id);
+        });
+
+        await tx.acao.createMany({
+            data: protocolInput.acoes.map((acao) => ({
+                titulo: acao.titulo,
+                descricao: acao.descricao,
+                alerta: acao.alerta,
+                duracao_dias: acao.duracao_dias,
+                duracao_dias_real: acao.duracao_dias_real,
+                fk_protocolo_id: protocolInput.id,
+                fk_fase_id: phaseIdByKey.get(acao.phaseKey),
+            })),
+        });
+
+        return tx.protocolo.findUnique({
+            where: { id: protocolInput.id },
+            include: {
+                cultura: true,
+                acoes: {
+                    include: {
+                        fase: true,
+                    }
+                },
+                lotes: true,
+            },
+        });
+    });
+}
+
 const Mutation = mutationType({
     name: 'Mutation',
     definition(t) {
@@ -370,8 +634,6 @@ const Mutation = mutationType({
         t.crud.createOneConcentrada()
         t.crud.createOneNotificacao()
         t.crud.createOneAgenda()
-        t.crud.createOneProtocolo()
-        t.crud.createOneFase()
 
         t.field(
             "createOneLocalizacao",
@@ -402,6 +664,72 @@ const Mutation = mutationType({
                     });
 
                     return localizacao;
+                }
+            }
+        )
+
+        t.field(
+            "createOneFase",
+            {
+                type: "Fase",
+                args: {
+                    nome: nonNull(stringArg()),
+                    duracao_dias: nonNull(intArg()),
+                    descricao: stringArg(),
+                    contaId: nonNull(intArg()),
+                    protocoloId: nonNull(intArg()),
+                },
+                resolve: async (_, args, { prisma }) => {
+                    const protocolo = await prisma.protocolo.findUnique({
+                        where: {
+                            id: args.protocoloId,
+                        },
+                        select: {
+                            id: true,
+                            fk_conta_id: true,
+                            deleted_at: true,
+                        },
+                    });
+
+                    if (!protocolo || protocolo.deleted_at) {
+                        throw new DomainError('NOT_FOUND', 'Protocolo não encontrado para vincular fase');
+                    }
+
+                    if (protocolo.fk_conta_id !== args.contaId) {
+                        throw new DomainError('TENANT_SCOPE_VIOLATION', 'Protocolo fora do escopo da conta para criação da fase');
+                    }
+
+                    return prisma.fase.create({
+                        data: {
+                            nome: args.nome,
+                            descricao: args.descricao,
+                            duracao_dias: args.duracao_dias,
+                            conta: {
+                                connect: {
+                                    id: args.contaId,
+                                }
+                            },
+                            protocolo: {
+                                connect: {
+                                    id: args.protocoloId,
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+        )
+
+        t.field(
+            "createProtocoloEstruturado",
+            {
+                type: "Protocolo",
+                args: {
+                    input: nonNull(stringArg()),
+                },
+                resolve: async (_, { input }, { prisma }) => {
+                    const protocolInput = parseStructuredProtocolInput(input, false);
+                    return createProtocolWithStructuredPayload(prisma, protocolInput);
                 }
             }
         )
@@ -2249,128 +2577,8 @@ t.field(
                     input: nonNull(stringArg())
                 },
                 resolve: async (_, { input }, { prisma }) => {
-                    var protocoloRetornado;
-                    var protocoloAtualizado = JSON.parse(input);
-                    console.log(protocoloAtualizado);
-
-                    const protocoloAntigo = await prisma.protocolo.findUnique({
-                        where: {
-                            id: protocoloAtualizado.id,
-                        },
-                        include: {
-                            acoes: true,
-                            cultura: true,
-                        }
-                    });
-
-                    // # Deletar ações que não existem mais
-                    for (const acao of protocoloAntigo.acoes) {
-                        var indexAcao = protocoloAtualizado.acoes.findIndex(function (x) {
-                            return x.id === acao.id;
-                        })
-                        if (indexAcao == -1) {
-                            await prisma.acao.delete({
-                                where: {
-                                    id: acao.id,
-                                },
-                            });
-                        }
-                    }
-
-                    // # Atualizar ações existentes
-                    for (const acao of protocoloAtualizado.acoes) {
-                        var indexAcao = protocoloAntigo.acoes.findIndex(function (x) {
-                            return x.id === acao.id;
-                        })
-                        if (indexAcao != -1) {
-                            var dataAtualizarAcao = {
-                                nome: acao.nome,
-                                descricao: acao.descricao,
-                                tipo: acao.tipo,
-                                data: acao.data,
-                                updated_at: new Date().toISOString(),
-                                fase: {
-                                    connect: {
-                                        id: acao.faseId,
-                                    }
-                                }
-                            }
-
-                            if (acao.fase.id != null && acao.fase.id != undefined) {
-                                dataAtualizarAcao["fase"] = {
-                                    connect: {
-                                        id: acao.fase.id,
-                                    }
-                                }
-                            }
-
-                            await prisma.acao.update({
-                                where: {
-                                    id: acao.id,
-                                },
-                                data: dataAtualizarAcao
-                            });
-                        }
-                    }
-
-                    // # Criar novas ações
-                    for (const acao of protocoloAtualizado.acoes) {
-                        if (acao.id == null || acao.id == undefined) {
-                            var dataNovaAcao = {
-                                titulo: acao.titulo,
-                                descricao: acao.descricao,
-                                alerta: acao.alerta,
-                                duracao_dias: acao.duracao_dias,
-                                duracao_dias_real: acao.duracao_dias_real,
-                                updated_at: new Date().toISOString(),
-                                protocolo: {
-                                    connect: {
-                                        id: protocoloAtualizado.id,
-                                    }
-                                },
-                            }
-
-                            if (acao.fase != null && acao.fase != undefined && acao.fase.id != null && acao.fase.id != undefined) {
-                                dataNovaAcao["fase"] = {
-                                    connect: {
-                                        id: acao.fase.id,
-                                    }
-                                }
-                            }
-
-                            await prisma.acao.create({
-                                data: dataNovaAcao,
-                            });
-                        }
-                    }
-
-                    var dataAtualizarProtocolo = {
-                        nome: protocoloAtualizado.nome,
-                        descricao: protocoloAtualizado.descricao,
-                        tipo_cultura: protocoloAtualizado.tipo_cultura,
-                        sistema_cultivo: protocoloAtualizado.sistema_cultivo,
-                        implantacao: protocoloAtualizado.implantacao,
-                    }
-                    if(protocoloAtualizado.cultura != null && protocoloAtualizado.cultura != undefined) {
-                        dataAtualizarProtocolo["cultura"] = {
-                            connect: {
-                                id: protocoloAtualizado.cultura.id,
-                            }
-                        }
-                    }
-
-                    protocoloRetornado = await prisma.protocolo.update({
-                        where: {
-                            id: protocoloAtualizado.id,
-                        },
-                        data: dataAtualizarProtocolo,
-                        include: {
-                            acoes: true,
-                            cultura: true,
-                        }
-                    });
-                    console.log(protocoloRetornado);
-                    return protocoloRetornado;
+                    const protocolInput = parseStructuredProtocolInput(input, true);
+                    return updateProtocolWithStructuredPayload(prisma, protocolInput);
                 }
             }
         )

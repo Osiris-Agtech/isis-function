@@ -11,6 +11,7 @@ const Fase = objectType({
     t.model.updated_at()
     t.model.deleted_at()
     t.model.conta()
+    t.model.protocolo()
     t.model.acaos()
   }
 })
