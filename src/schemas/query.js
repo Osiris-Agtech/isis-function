@@ -899,7 +899,7 @@ const Query = queryType({
         // Ordenar alertas por gravidade
         const gravidadeOrder = { alta: 0, media: 1, baixa: 2 }
         alertasCritico.sort((a, b) => gravidadeOrder[a.gravidade] - gravidadeOrder[b.gravidade])
-
+        const alertasCriticoLimitados = alertasCritico.slice(0, 5)
         return {
           resumo: {
             totalLotes,
@@ -931,7 +931,13 @@ const Query = queryType({
           },
           culturas,
           equipe,
-          alertasCritico: alertasCritico.slice(0, 5),
+          alertasCritico: alertasCriticoLimitados,
+          __homeInfoContextSeed: {
+            contaId,
+            lotes,
+            lotesColheitaProximaList,
+            alertasCritico: alertasCriticoLimitados,
+          },
         }
       },
     })

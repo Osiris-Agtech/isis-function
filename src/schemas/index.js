@@ -49,7 +49,16 @@ const {
   HomeComparativoPeriodo,
   HomeCulturaDestaque,
   HomeEquipeResumo,
-  HomeAlertaCritico
+  HomeAlertaCritico,
+  HomeInfoContext,
+  HomeTodayCultivationInfo,
+  HomeReservoirReport,
+  HomeReservoirSummary,
+  HomeDayProgress,
+  HomeFieldNotesSummary,
+  HomeFieldNoteSummary,
+  HomeInfoTask,
+  HomeInfoAlert
 } = require('./homeDashboard')
 
 // New Tables
@@ -128,6 +137,15 @@ module.exports = {
   HomeCulturaDestaque,
   HomeEquipeResumo,
   HomeAlertaCritico,
+  HomeInfoContext,
+  HomeTodayCultivationInfo,
+  HomeReservoirReport,
+  HomeReservoirSummary,
+  HomeDayProgress,
+  HomeFieldNotesSummary,
+  HomeFieldNoteSummary,
+  HomeInfoTask,
+  HomeInfoAlert,
   DateTime,
   Area,
   Conta,

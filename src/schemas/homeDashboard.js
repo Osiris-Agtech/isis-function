@@ -1,4 +1,5 @@
 const { objectType, intArg, nonNull } = require('@nexus/schema')
+const { buildHomeInfoContext } = require('../services/homeInfoContextService')
 
 const HomeResumo = objectType({
   name: 'HomeResumo',
@@ -167,6 +168,110 @@ const HomeAlertaCritico = objectType({
   }
 })
 
+const HomeInfoAlert = objectType({
+  name: 'HomeInfoAlert',
+  definition(t) {
+    t.string('type')
+    t.string('message')
+    t.int('lotId')
+    t.string('lotName')
+    t.string('severity')
+    t.string('date')
+  }
+})
+
+const HomeInfoTask = objectType({
+  name: 'HomeInfoTask',
+  definition(t) {
+    t.int('id')
+    t.string('title')
+    t.string('description')
+    t.int('lotId')
+    t.string('lotName')
+    t.string('date')
+    t.boolean('overdue')
+  }
+})
+
+const HomeTodayCultivationInfo = objectType({
+  name: 'HomeTodayCultivationInfo',
+  definition(t) {
+    t.int('tasksToday')
+    t.int('overdueTasks')
+    t.int('activeLots')
+    t.int('upcomingHarvests')
+    t.list.field('alerts', { type: 'HomeInfoAlert' })
+    t.list.field('nextTasks', { type: 'HomeInfoTask' })
+  }
+})
+
+const HomeReservoirSummary = objectType({
+  name: 'HomeReservoirSummary',
+  definition(t) {
+    t.int('id')
+    t.string('name')
+    t.float('volume')
+    t.string('solutionName')
+    t.float('electricalConductivity')
+    t.int('linkedLotsCount')
+  }
+})
+
+const HomeReservoirReport = objectType({
+  name: 'HomeReservoirReport',
+  definition(t) {
+    t.int('totalReservoirs')
+    t.float('totalVolume')
+    t.int('reservoirsWithSolution')
+    t.int('reservoirsWithoutSolution')
+    t.int('activeLotsLinked')
+    t.list.field('highlightedReservoirs', { type: 'HomeReservoirSummary' })
+  }
+})
+
+const HomeDayProgress = objectType({
+  name: 'HomeDayProgress',
+  definition(t) {
+    t.int('totalTasksToday')
+    t.int('completedTasksToday')
+    t.int('pendingTasksToday')
+    t.int('overdueTasks')
+    t.field('nextTask', { type: 'HomeInfoTask' })
+    t.string('completionLabel')
+  }
+})
+
+const HomeFieldNoteSummary = objectType({
+  name: 'HomeFieldNoteSummary',
+  definition(t) {
+    t.int('id')
+    t.string('title')
+    t.string('description')
+    t.int('lotId')
+    t.string('lotName')
+    t.string('userName')
+    t.string('createdAt')
+  }
+})
+
+const HomeFieldNotesSummary = objectType({
+  name: 'HomeFieldNotesSummary',
+  definition(t) {
+    t.int('totalRecentNotes')
+    t.list.field('latestNotes', { type: 'HomeFieldNoteSummary' })
+  }
+})
+
+const HomeInfoContext = objectType({
+  name: 'HomeInfoContext',
+  definition(t) {
+    t.field('todayCultivation', { type: 'HomeTodayCultivationInfo' })
+    t.field('reservoirReport', { type: 'HomeReservoirReport' })
+    t.field('dayProgress', { type: 'HomeDayProgress' })
+    t.field('fieldNotesSummary', { type: 'HomeFieldNotesSummary' })
+  }
+})
+
 const HomeDashboard = objectType({
   name: 'HomeDashboard',
   definition(t) {
@@ -177,6 +282,26 @@ const HomeDashboard = objectType({
     // Novos campos
     t.field('equipe', { type: 'HomeEquipeResumo' })
     t.list.field('alertasCritico', { type: 'HomeAlertaCritico' })
+    t.field('infoContext', {
+      type: 'HomeInfoContext',
+      resolve: (parent, _, ctx) => {
+        if (parent.infoContext) {
+          return parent.infoContext
+        }
+
+        const seed = parent.__homeInfoContextSeed
+        if (!seed) {
+          return null
+        }
+
+        return buildHomeInfoContext({
+          prisma: ctx.prisma,
+          contaId: seed.contaId,
+          referenceDate: new Date(),
+          existingHomeData: seed,
+        })
+      },
+    })
   }
 })
 
@@ -196,5 +321,14 @@ module.exports = {
   HomeTarefasPorVencimento,
   HomeTarefasPorPrioridade,
   HomeAlertaCritico,
+  HomeInfoContext,
+  HomeTodayCultivationInfo,
+  HomeReservoirReport,
+  HomeReservoirSummary,
+  HomeDayProgress,
+  HomeFieldNotesSummary,
+  HomeFieldNoteSummary,
+  HomeInfoTask,
+  HomeInfoAlert,
   HomeDashboard
 }
