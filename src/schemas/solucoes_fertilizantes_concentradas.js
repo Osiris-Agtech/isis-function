@@ -8,6 +8,7 @@ const Solucoes_Fertilizantes_Concentradas = objectType({
     t.model.fertilizante()
     t.model.solucao()
     t.model.quantidade()
+    t.model.deleted_at()
   }
 })
 

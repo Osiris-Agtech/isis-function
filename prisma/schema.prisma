@@ -291,6 +291,7 @@ model Solucoes_Fertilizantes_Concentradas {
   fk_fertilizantes_id Int?
   fk_concentradas_id  Int?
   quantidade          Decimal?      @db.Decimal
+  deleted_at          DateTime?                             @db.Timestamp(6)
   concentrada         Concentrada?  @relation(fields: [fk_concentradas_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_solucoes_fertilizantes_concentradas_3")
   fertilizante        Fertilizante? @relation(fields: [fk_fertilizantes_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_solucoes_fertilizantes_concentradas_2")
   solucao             SNutritiva?   @relation(fields: [fk_solucoes_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_solucoes_fertilizantes_concentradas_1")
@@ -347,6 +348,7 @@ model Solucoes_Contas {
   fk_solucoes_id Int?
   created_at     DateTime?   @default(now()) @db.Timestamp(6)
   conta_original Int?
+  deleted_at          DateTime?                             @db.Timestamp(6)
   conta          Conta?      @relation(fields: [fk_contas_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_solucoes_contas_1")
   solucao        SNutritiva? @relation(fields: [fk_solucoes_id], references: [id], onUpdate: NoAction, map: "fk_solucoes_contas_2")
 

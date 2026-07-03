@@ -10,6 +10,19 @@ const {
     InfrastructureError,
 } = require('../errors/apiErrors');
 
+const {
+  softDeleteLote,
+  softDeleteLoteCascade,
+  softDeleteArea,
+  softDeleteAreaCascade,
+  softDeleteSetor,
+  softDeleteSetorCascade,
+  softDeleteReservatorio,
+  softDeleteReservatorioCascade,
+  softDeleteSNutritiva,
+  softDeleteSNutritivaCascade,
+} = require('./softDeleteResolvers');
+
 const APP_BRAND_NAME = 'Aplicativo de Gestão de Cultivos - UFMT';
 
 function buildEmailLayout({ heading, intro, details, cta }) {
@@ -984,45 +997,21 @@ const Mutation = mutationType({
             }
         )
 
-        t.field(
-            "softDeleteLote",
-            {
-                type: "Lote",
-                args: {
-                    loteId: nonNull(intArg()),
-                },
-                resolve: async (_, args, { prisma }) => {
-                    const loteUpdate = await prisma.lote.update({
-                        where: {
-                            id: args.loteId,
-                        },
-                        data: { deleted_at: new Date().toISOString() },
-                    });
+        t.field('softDeleteLote', {
+            type: 'Lote',
+            args: { loteId: nonNull(intArg()) },
+            resolve: async (_, args, { prisma, authUserId }) => {
+                return softDeleteLote(prisma, authUserId, args);
+            },
+        })
 
-                    return loteUpdate;
-                }
-            }
-        )
-
-        t.field(
-            "softDeleteArea",
-            {
-                type: "Area",
-                args: {
-                    areaId: nonNull(intArg()),
-                },
-                resolve: async (_, args, { prisma }) => {
-                    const areaUpdate = await prisma.area.update({
-                        where: {
-                            id: args.areaId,
-                        },
-                        data: { deleted_at: new Date().toISOString() },
-                    });
-
-                    return areaUpdate;
-                }
-            }
-        )
+        t.field('softDeleteArea', {
+            type: 'Area',
+            args: { areaId: nonNull(intArg()) },
+            resolve: async (_, args, { prisma, authUserId }) => {
+                return softDeleteArea(prisma, authUserId, args);
+            },
+        })
 
         t.field(
             "softDeleteConta",
@@ -1064,248 +1053,61 @@ const Mutation = mutationType({
             }
         )
 
-        t.field(
-            "softDeleteReservatorio",
-            {
-                type: "Reservatorio",
-                args: {
-                    reservatorioId: nonNull(intArg()),
-                },
-                resolve: async (_, args, { prisma }) => {
-                    const reservatorioUpdate = await prisma.reservatorio.update({
-                        where: {
-                            id: args.reservatorioId,
-                        },
-                        data: { deleted_at: new Date().toISOString() },
-                    });
-
-                    return reservatorioUpdate;
-                }
-            }
-        )
-
-        t.field(
-            "softDeleteSetor",
-            {
-                type: "Setor",
-                args: {
-                    setorId: nonNull(intArg()),
-                },
-                resolve: async (_, args, { prisma }) => {
-                    const setorUpdate = await prisma.setor.update({
-                        where: {
-                            id: args.setorId,
-                        },
-                        data: { deleted_at: new Date().toISOString() },
-                    });
-
-                    return setorUpdate;
-                }
-            }
-        )
-
-t.field(
-  "softDeleteSNutritiva",
-  {
-    type: "SNutritiva",
-    args: {
-      snutritivaId: nonNull(intArg()),
-    },
-    resolve: async (_, args, { prisma, authUserId }) => {
-      const authorizedContaIds = await getAuthorizedContaIds(prisma, authUserId);
-      await assertSolucaoInTenantScope(prisma, args.snutritivaId, authorizedContaIds);
-
-      const snutritivaUpdate = await prisma.sNutritiva.update({
-        where: {
-          id: args.snutritivaId,
-        },
-        data: { deleted_at: new Date().toISOString() },
-      });
-
-      return snutritivaUpdate;
-    }
-  }
-)
-
-t.field(
-  "softDeleteAreaCascade",
-  {
-    type: "Area",
-    args: {
-      areaId: nonNull(intArg()),
-    },
-    resolve: async (_, args, { prisma }) => {
-      const area = await prisma.area.findUnique({
-        where: { id: args.areaId },
-        select: { id: true, deleted_at: true },
-      });
-
-      if (!area) throw new UserInputError("Area não encontrada");
-      if (area.deleted_at) throw new UserInputError("Area já deletada");
-
-      const setores = await prisma.setor.findMany({
-        where: { fk_areas_id: args.areaId, deleted_at: null },
-        select: { id: true },
-      });
-
-      const setorIds = setores.map((s) => s.id);
-      const deletedAt = new Date().toISOString();
-      const txOperations = [];
-
-      if (setorIds.length > 0) {
-        txOperations.push(
-          prisma.lote.updateMany({
-            where: { fk_setores_id: { in: setorIds }, deleted_at: null },
-            data: { deleted_at: deletedAt },
-          })
-        );
-      }
-
-      txOperations.push(
-        prisma.setor.updateMany({
-          where: { fk_areas_id: args.areaId, deleted_at: null },
-          data: { deleted_at: deletedAt },
+        t.field('softDeleteReservatorio', {
+            type: 'Reservatorio',
+            args: { reservatorioId: nonNull(intArg()) },
+            resolve: async (_, args, { prisma, authUserId }) => {
+                return softDeleteReservatorio(prisma, authUserId, args);
+            },
         })
-      );
 
-      txOperations.push(
-        prisma.area.update({
-          where: { id: args.areaId },
-          data: { deleted_at: deletedAt },
+        t.field('softDeleteSetor', {
+            type: 'Setor',
+            args: { setorId: nonNull(intArg()) },
+            resolve: async (_, args, { prisma, authUserId }) => {
+                return softDeleteSetor(prisma, authUserId, args);
+            },
         })
-      );
 
-      const txResults = await prisma.$transaction(txOperations);
-      return txResults[txResults.length - 1];
-    },
-  }
-)
+t.field('softDeleteSNutritiva', {
+  type: 'SNutritiva',
+  args: { snutritivaId: nonNull(intArg()) },
+  resolve: async (_, args, { prisma, authUserId }) => {
+    return softDeleteSNutritiva(prisma, authUserId, args);
+  },
+})
 
-t.field(
-  "softDeleteSetorCascade",
-  {
-    type: "Setor",
-    args: {
-      setorId: nonNull(intArg()),
-    },
-    resolve: async (_, args, { prisma }) => {
-      const setor = await prisma.setor.findUnique({
-        where: { id: args.setorId },
-        select: { id: true, deleted_at: true },
-      });
+t.field('softDeleteAreaCascade', {
+  type: 'Area',
+  args: { areaId: nonNull(intArg()) },
+  resolve: async (_, args, { prisma, authUserId }) => {
+    return softDeleteAreaCascade(prisma, authUserId, args);
+  },
+})
 
-      if (!setor) throw new UserInputError("Setor não encontrado");
-      if (setor.deleted_at) throw new UserInputError("Setor já deletado");
+t.field('softDeleteSetorCascade', {
+  type: 'Setor',
+  args: { setorId: nonNull(intArg()) },
+  resolve: async (_, args, { prisma, authUserId }) => {
+    return softDeleteSetorCascade(prisma, authUserId, args);
+  },
+})
 
-      const deletedAt = new Date().toISOString();
+t.field('softDeleteReservatorioCascade', {
+  type: 'Reservatorio',
+  args: { reservatorioId: nonNull(intArg()) },
+  resolve: async (_, args, { prisma, authUserId }) => {
+    return softDeleteReservatorioCascade(prisma, authUserId, args);
+  },
+})
 
-      const txResults = await prisma.$transaction([
-        prisma.lote.updateMany({
-          where: { fk_setores_id: args.setorId, deleted_at: null },
-          data: { deleted_at: deletedAt },
-        }),
-        prisma.setor.update({
-          where: { id: args.setorId },
-          data: { deleted_at: deletedAt },
-        }),
-      ]);
-
-      return txResults[1];
-    },
-  }
-)
-
-t.field(
-  "softDeleteReservatorioCascade",
-  {
-    type: "Reservatorio",
-    args: {
-      reservatorioId: nonNull(intArg()),
-    },
-    resolve: async (_, args, { prisma }) => {
-      const reservatorio = await prisma.reservatorio.findUnique({
-        where: { id: args.reservatorioId },
-        select: { id: true, deleted_at: true },
-      });
-
-      if (!reservatorio) throw new UserInputError("Reservatorio não encontrado");
-      if (reservatorio.deleted_at) throw new UserInputError("Reservatorio já deletado");
-
-      const deletedAt = new Date().toISOString();
-
-      const txResults = await prisma.$transaction([
-        prisma.lote.updateMany({
-          where: { fk_reservatorios_id: args.reservatorioId, deleted_at: null },
-          data: { deleted_at: deletedAt },
-        }),
-        prisma.reservatorio.update({
-          where: { id: args.reservatorioId },
-          data: { deleted_at: deletedAt },
-        }),
-      ]);
-
-      return txResults[1];
-    },
-  }
-)
-
-t.field(
-  "softDeleteSNutritivaCascade",
-  {
-    type: "SNutritiva",
-    args: {
-      snutritivaId: nonNull(intArg()),
-    },
-    resolve: async (_, args, { prisma, authUserId }) => {
-      const authorizedContaIds = await getAuthorizedContaIds(prisma, authUserId);
-
-      await assertSolucaoInTenantScope(prisma, args.snutritivaId, authorizedContaIds);
-
-      const snutritiva = await prisma.sNutritiva.findUnique({
-        where: { id: args.snutritivaId },
-        select: { id: true, deleted_at: true },
-      });
-
-      if (!snutritiva) throw new UserInputError("SNutritiva não encontrada");
-      if (snutritiva.deleted_at) throw new UserInputError("SNutritiva já deletada");
-
-      const reservatorios = await prisma.reservatorio.findMany({
-        where: { fk_snutritivas_id: args.snutritivaId, deleted_at: null },
-        select: { id: true },
-      });
-
-      const reservatorioIds = reservatorios.map((r) => r.id);
-      const deletedAt = new Date().toISOString();
-      const txOperations = [];
-
-      if (reservatorioIds.length > 0) {
-        txOperations.push(
-          prisma.lote.updateMany({
-            where: { fk_reservatorios_id: { in: reservatorioIds }, deleted_at: null },
-            data: { deleted_at: deletedAt },
-          })
-        );
-      }
-
-      txOperations.push(
-        prisma.reservatorio.updateMany({
-          where: { fk_snutritivas_id: args.snutritivaId, deleted_at: null },
-          data: { deleted_at: deletedAt },
-        })
-      );
-
-      txOperations.push(
-        prisma.sNutritiva.update({
-          where: { id: args.snutritivaId },
-          data: { deleted_at: deletedAt },
-        })
-      );
-
-      const txResults = await prisma.$transaction(txOperations);
-      return txResults[txResults.length - 1];
-    },
-  }
-)
+t.field('softDeleteSNutritivaCascade', {
+  type: 'SNutritiva',
+  args: { snutritivaId: nonNull(intArg()) },
+  resolve: async (_, args, { prisma, authUserId }) => {
+    return softDeleteSNutritivaCascade(prisma, authUserId, args);
+  },
+})
 
 t.field(
   "softDeleteProtocoloCascade",

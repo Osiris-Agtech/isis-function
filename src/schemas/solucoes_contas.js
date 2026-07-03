@@ -8,6 +8,7 @@ const Solucoes_Contas = objectType({
     t.model.conta_original()
     t.model.conta()
     t.model.solucao()
+    t.model.deleted_at()
   }
 })
 
