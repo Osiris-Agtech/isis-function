@@ -1109,6 +1109,14 @@ t.field('softDeleteSNutritivaCascade', {
   },
 })
 
+t.field('softDeleteLoteCascade', {
+  type: 'Lote',
+  args: { loteId: nonNull(intArg()) },
+  resolve: async (_, args, { prisma, authUserId }) => {
+    return softDeleteLoteCascade(prisma, authUserId, args);
+  },
+})
+
 t.field(
   "softDeleteProtocoloCascade",
   {
