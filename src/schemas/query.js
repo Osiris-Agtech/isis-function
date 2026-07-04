@@ -85,6 +85,28 @@ function buildSolucaoTenantScopeWhere(authorizedContaIds) {
   }
 }
 
+// ────────────────────────────────────────────
+// Helpers para filtrar soft-delete
+// ────────────────────────────────────────────
+
+function withActiveFilter(plural) {
+  // Para queries plurais: injeta { deleted_at: null } no where
+  // Para queries singulares: filtra resultado com deleted_at
+  if (plural) {
+    return async (root, args, ctx, info, originalResolve) => {
+      args.where = {
+        AND: [args.where || {}, { deleted_at: null }],
+      }
+      return originalResolve(root, args, ctx, info)
+    }
+  }
+  return async (root, args, ctx, info, originalResolve) => {
+    const result = await originalResolve(root, args, ctx, info)
+    if (!result || result.deleted_at) return null
+    return result
+  }
+}
+
 const Query = queryType({
   name: 'Query',
   definition(t) {
@@ -94,9 +116,12 @@ const Query = queryType({
 
     t.crud.areas({
       filtering: true,
-      ordering: true
+      ordering: true,
+      resolve: withActiveFilter(true),
     })
-    t.crud.area()
+    t.crud.area({
+      resolve: withActiveFilter(false),
+    })
 
     t.crud.atividades({
       filtering: true,
@@ -112,9 +137,12 @@ const Query = queryType({
 
     t.crud.contas({
       filtering: true,
-      ordering: true
+      ordering: true,
+      resolve: withActiveFilter(true),
     })
-    t.crud.conta()
+    t.crud.conta({
+      resolve: withActiveFilter(false),
+    })
 
     // ### FAZER MANUALMENTE
     t.crud.concentradas({
@@ -125,15 +153,21 @@ const Query = queryType({
 
     t.crud.culturas({
       filtering: true,
-      ordering: true
+      ordering: true,
+      resolve: withActiveFilter(true),
     })
-    t.crud.cultura()
+    t.crud.cultura({
+      resolve: withActiveFilter(false),
+    })
 
     t.crud.fases({
       filtering: true,
-      ordering: true
+      ordering: true,
+      resolve: withActiveFilter(true),
     })
-    t.crud.fase()
+    t.crud.fase({
+      resolve: withActiveFilter(false),
+    })
 
     t.list.field('fasesPorProtocolo', {
       type: 'Fase',
@@ -318,9 +352,12 @@ const Query = queryType({
 
     t.crud.lotes({
       filtering: true,
-      ordering: true
+      ordering: true,
+      resolve: withActiveFilter(true),
     })
-    t.crud.lote()
+    t.crud.lote({
+      resolve: withActiveFilter(false),
+    })
 
     // ### FAZER MANUALMENTE
     // t.crud.Lotes_Atividades({
@@ -346,6 +383,7 @@ const Query = queryType({
         args.where = {
           AND: [
             args.where || {},
+            { deleted_at: null },
             tenantScopeWhere,
           ],
         }
@@ -358,7 +396,7 @@ const Query = queryType({
         const authorizedContaIds = await getAuthorizedContaIds(ctx.prisma, ctx.authUserId)
         const result = await originalResolve(root, args, ctx, info)
 
-        if (!result) {
+        if (!result || result.deleted_at) {
           return null
         }
 
@@ -401,9 +439,12 @@ const Query = queryType({
 
     t.crud.reservatorios({
       filtering: true,
-      ordering: true
+      ordering: true,
+      resolve: withActiveFilter(true),
     })
-    t.crud.reservatorio()
+    t.crud.reservatorio({
+      resolve: withActiveFilter(false),
+    })
     
     // t.crud.agendas({
     //   filtering: true,
@@ -462,27 +503,32 @@ const Query = queryType({
       resolve: async (_, args, ctx) => {
         const agenda = await ctx.prisma.agenda.findFirst({
           where: {
-            id: {
-                equals: args.id,
-              }
+            id: args.id,
+            deleted_at: null,
           },
         });
 
-        return agenda;
+        return agenda || null;
       },
     });
 
     t.crud.protocolos({
       filtering: true,
-      ordering: true
+      ordering: true,
+      resolve: withActiveFilter(true),
     })
-    t.crud.protocolo()
+    t.crud.protocolo({
+      resolve: withActiveFilter(false),
+    })
 
     t.crud.acaos({
       filtering: true,
-      ordering: true
+      ordering: true,
+      resolve: withActiveFilter(true),
     })
-    t.crud.acao()
+    t.crud.acao({
+      resolve: withActiveFilter(false),
+    })
 
     // ### s no final para indicar MANY
     // t.crud.setors({
@@ -519,9 +565,12 @@ const Query = queryType({
     // });
     t.crud.setors({
       filtering: true,
-      ordering: true
+      ordering: true,
+      resolve: withActiveFilter(true),
     })
-    t.crud.setor()
+    t.crud.setor({
+      resolve: withActiveFilter(false),
+    })
 
     // ### FAZER MANUALMENTE
     // t.crud.solucoes_contas({
