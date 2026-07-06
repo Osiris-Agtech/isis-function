@@ -298,7 +298,7 @@ async function ensureContaUserManagementScope(prisma, authUserId, contaId) {
 async function assertNotRemovingLastOwner(prisma, contaId, userId) {
     const ownerCargo = await prisma.cargo.findFirst({
         where: {
-            cargo: 'Dono',
+            cargo: 'Owner',
         },
         select: {
             id: true,
@@ -329,7 +329,7 @@ async function assertNotRemovingLastOwner(prisma, contaId, userId) {
     });
 
     if (ownersCount <= 1) {
-        throw new DomainError('LAST_OWNER_BLOCKED', 'Não é permitido remover o último Dono da conta');
+        throw new DomainError('LAST_OWNER_BLOCKED', 'Não é permitido remover o último Owner da conta');
     }
 }
 
