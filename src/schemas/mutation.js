@@ -2195,6 +2195,7 @@ t.field(
                     reservatorioId: intArg(),
                     protocoloId: intArg(),
                     contaId: nonNull(intArg()),
+                    ativo: booleanArg(),
                 },
                 resolve: async (_, args, { prisma }) => {
                     var data = {}
@@ -2203,7 +2204,7 @@ t.field(
                     if (args.reservatorioId != null) {
                         data = {
                             nome: args.nome,
-                            ativo: true,
+                            ativo: args.ativo ?? true,
                             registro_data: args.registroData,
                             semeadura_data: args.semeaduraData,
                             transplantio_data: args.transplantioData,
@@ -2227,7 +2228,7 @@ t.field(
                     } else {
                         data = {
                             nome: args.nome,
-                            ativo: true,
+                            ativo: args.ativo ?? true,
                             registro_data: args.registroData,
                             semeadura_data: args.semeaduraData,
                             transplantio_data: args.transplantioData,
