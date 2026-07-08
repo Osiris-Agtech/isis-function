@@ -1,5 +1,5 @@
-const { mutationType, list, nonNull, stringArg, intArg, floatArg } = require('@nexus/schema');
-const { booleanArg, arg, inputObjectType } = require('nexus');
+const { mutationType, list, nonNull, stringArg, intArg, floatArg, booleanArg } = require('@nexus/schema');
+const { arg, inputObjectType } = require('nexus');
 const nodemailer = require("nodemailer");
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
