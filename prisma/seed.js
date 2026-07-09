@@ -368,7 +368,7 @@ async function main() {
   console.log('\nAssociando permissões por cargo...');
 
   const permissoesPorCargo = {
-    Owner: {
+    Dono: {
       allow: permissoes,
     },
     Administrator: {
