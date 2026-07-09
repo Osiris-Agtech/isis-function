@@ -85,6 +85,31 @@ function buildSolucaoTenantScopeWhere(authorizedContaIds) {
   }
 }
 
+function buildProtocoloTenantVisibilityWhere(authorizedContaIds) {
+  return {
+    deleted_at: null,
+    OR: [
+      {
+        fk_conta_id: null,
+      },
+      {
+        fk_conta_id: {
+          in: authorizedContaIds,
+        },
+      },
+    ],
+  }
+}
+
+async function buildProtocoloAuthenticatedVisibilityWhere(prisma, authUserId) {
+  const authorizedContaIds = await getAuthorizedContaIds(prisma, authUserId)
+  return buildProtocoloTenantVisibilityWhere(authorizedContaIds)
+}
+
+function isProtocoloVisibleForTenant(protocolo, authorizedContaIds) {
+  return protocolo.fk_conta_id == null || authorizedContaIds.includes(protocolo.fk_conta_id)
+}
+
 // ────────────────────────────────────────────
 // Helpers para filtrar soft-delete
 // ────────────────────────────────────────────
@@ -176,12 +201,19 @@ const Query = queryType({
         protocoloId: nonNull(intArg()),
       },
       resolve: async (_, args, ctx) => {
-        await assertContaInTenantScope(ctx.prisma, ctx.authUserId, args.contaId)
+        const contaId = await assertContaInTenantScope(ctx.prisma, ctx.authUserId, args.contaId)
 
         const protocolo = await ctx.prisma.protocolo.findFirst({
           where: {
             id: args.protocoloId,
-            fk_conta_id: args.contaId,
+            OR: [
+              {
+                fk_conta_id: null,
+              },
+              {
+                fk_conta_id: contaId,
+              },
+            ],
             deleted_at: null,
           },
           select: {
@@ -195,9 +227,16 @@ const Query = queryType({
 
         return ctx.prisma.fase.findMany({
           where: {
-            fk_conta_id: args.contaId,
             fk_protocolo_id: args.protocoloId,
             deleted_at: null,
+            OR: [
+              {
+                fk_conta_id: null,
+              },
+              {
+                fk_conta_id: contaId,
+              },
+            ],
           },
           orderBy: {
             created_at: 'asc',
@@ -515,10 +554,34 @@ const Query = queryType({
     t.crud.protocolos({
       filtering: true,
       ordering: true,
-      resolve: withActiveFilter(true),
+      resolve: async (root, args, ctx, info, originalResolve) => {
+        const tenantVisibilityWhere = await buildProtocoloAuthenticatedVisibilityWhere(
+          ctx.prisma,
+          ctx.authUserId
+        )
+
+        args.where = {
+          AND: [args.where || {}, tenantVisibilityWhere],
+        }
+
+        return originalResolve(root, args, ctx, info)
+      },
     })
     t.crud.protocolo({
-      resolve: withActiveFilter(false),
+      resolve: async (root, args, ctx, info, originalResolve) => {
+        const authorizedContaIds = await getAuthorizedContaIds(ctx.prisma, ctx.authUserId)
+        const result = await originalResolve(root, args, ctx, info)
+
+        if (!result || result.deleted_at) {
+          return null
+        }
+
+        if (!isProtocoloVisibleForTenant(result, authorizedContaIds)) {
+          return null
+        }
+
+        return result
+      },
     })
 
     t.crud.acaos({

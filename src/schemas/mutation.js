@@ -284,6 +284,34 @@ async function assertContaInTenantScope(prisma, authUserId, contaId) {
     return contaId;
 }
 
+async function assertCulturaVisibleForProtocol(prisma, culturaId, contaId) {
+    if (culturaId == null) {
+        return;
+    }
+
+    const cultura = await prisma.cultura.findFirst({
+        where: {
+            id: culturaId,
+            deleted_at: null,
+        },
+        select: {
+            id: true,
+            privado: true,
+            fk_contas_id: true,
+        },
+    });
+
+    if (!cultura) {
+        throw new DomainError('NOT_FOUND', 'Cultura não encontrada ou deletada');
+    }
+
+    if (cultura.privado === false || cultura.fk_contas_id === contaId) {
+        return;
+    }
+
+    throw new DomainError('TENANT_SCOPE_VIOLATION', 'Cultura fora do escopo da conta do protocolo');
+}
+
 async function ensureContaUserManagementScope(prisma, authUserId, contaId) {
     if (!Number.isInteger(contaId) || contaId <= 0) {
         throw new DomainError('VALIDATION_ERROR', 'contaId inválido');
@@ -700,7 +728,9 @@ const Mutation = mutationType({
                     contaId: nonNull(intArg()),
                     protocoloId: nonNull(intArg()),
                 },
-                resolve: async (_, args, { prisma }) => {
+                resolve: async (_, args, { prisma, authUserId }) => {
+                    const contaId = await assertContaInTenantScope(prisma, authUserId, args.contaId);
+
                     const protocolo = await prisma.protocolo.findUnique({
                         where: {
                             id: args.protocoloId,
@@ -716,7 +746,7 @@ const Mutation = mutationType({
                         throw new DomainError('NOT_FOUND', 'Protocolo não encontrado para vincular fase');
                     }
 
-                    if (protocolo.fk_conta_id !== args.contaId) {
+                    if (protocolo.fk_conta_id !== contaId) {
                         throw new DomainError('TENANT_SCOPE_VIOLATION', 'Protocolo fora do escopo da conta para criação da fase');
                     }
 
@@ -727,7 +757,7 @@ const Mutation = mutationType({
                             duracao_dias: args.duracao_dias,
                             conta: {
                                 connect: {
-                                    id: args.contaId,
+                                    id: contaId,
                                 }
                             },
                             protocolo: {
@@ -748,8 +778,10 @@ const Mutation = mutationType({
                 args: {
                     input: nonNull(stringArg()),
                 },
-                resolve: async (_, { input }, { prisma }) => {
+                resolve: async (_, { input }, { prisma, authUserId }) => {
                     const protocolInput = parseStructuredProtocolInput(input, false);
+                    await assertContaInTenantScope(prisma, authUserId, protocolInput.contaId);
+                    await assertCulturaVisibleForProtocol(prisma, protocolInput.culturaId, protocolInput.contaId);
                     return createProtocolWithStructuredPayload(prisma, protocolInput);
                 }
             }
@@ -1148,26 +1180,32 @@ t.field(
     args: {
       protocoloId: nonNull(intArg()),
     },
-    resolve: async (_, args, { prisma }) => {
+    resolve: async (_, args, { prisma, authUserId }) => {
+      const authorizedContaIds = await getAuthorizedContaIds(prisma, authUserId);
+
       const protocolo = await prisma.protocolo.findUnique({
         where: { id: args.protocoloId },
-        select: { id: true, deleted_at: true },
+        select: { id: true, fk_conta_id: true, deleted_at: true },
       });
 
       if (!protocolo) throw new UserInputError("Protocolo não encontrado");
       if (protocolo.deleted_at) throw new UserInputError("Protocolo já deletado");
+      if (protocolo.fk_conta_id == null) throw new UserInputError("Protocolo global não pode ser deletado");
+      if (!authorizedContaIds.includes(protocolo.fk_conta_id)) throw new UserInputError("Protocolo fora do escopo da conta");
 
       const deletedAt = new Date().toISOString();
 
-      await prisma.lote.updateMany({
-        where: { fk_protocolos_id: args.protocoloId, deleted_at: null },
-        data: { deleted_at: deletedAt },
-      });
-
       try {
-        return await prisma.protocolo.update({
-          where: { id: args.protocoloId },
-          data: { deleted_at: deletedAt },
+        return await prisma.$transaction(async (tx) => {
+          await tx.lote.updateMany({
+            where: { fk_protocolos_id: args.protocoloId, deleted_at: null },
+            data: { deleted_at: deletedAt },
+          });
+
+          return tx.protocolo.update({
+            where: { id: args.protocoloId },
+            data: { deleted_at: deletedAt },
+          });
         });
       } catch (error) {
         await prisma.notificacao.create({
@@ -2419,8 +2457,10 @@ t.field(
                 args: {
                     input: nonNull(stringArg())
                 },
-                resolve: async (_, { input }, { prisma }) => {
+                resolve: async (_, { input }, { prisma, authUserId }) => {
                     const protocolInput = parseStructuredProtocolInput(input, true);
+                    await assertContaInTenantScope(prisma, authUserId, protocolInput.contaId);
+                    await assertCulturaVisibleForProtocol(prisma, protocolInput.culturaId, protocolInput.contaId);
                     return updateProtocolWithStructuredPayload(prisma, protocolInput);
                 }
             }
