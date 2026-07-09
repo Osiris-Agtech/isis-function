@@ -194,73 +194,6 @@ async function createSystemProtocol(prisma, protocolData) {
 
   console.log(`✓ Protocolo template criado: ${protocolData.nome}`);
 }
-
-// ────────────────────────────────────────────
-// Dados das soluções nutritivas template (sistema)
-// ────────────────────────────────────────────
-const solutionsTemplate = [
-  {
-    nome: 'SN Alface 01',
-    c_eletrica: 1.0,
-    fertilizantes: [
-      { nome: 'Nitrato de Cálcio', quantidade: 495 },
-      { nome: 'Hidrogood Fert', quantidade: 660 },
-      { nome: 'Ferro (6,5%)', quantidade: 20 },
-    ],
-  },
-  {
-    nome: 'SN Rúcula 01',
-    c_eletrica: 1.0,
-    fertilizantes: [
-      { nome: 'Nitrato de Cálcio', quantidade: 495 },
-      { nome: 'Hidrogood Fert', quantidade: 660 },
-      { nome: 'Ferro (6,5%)', quantidade: 40 },
-    ],
-  },
-];
-
-// ────────────────────────────────────────────
-// Helper: criar solução nutritiva template
-// ────────────────────────────────────────────
-async function createSystemSolution(prisma, solutionData) {
-  const existing = await prisma.sNutritiva.findFirst({
-    where: { nome: solutionData.nome, deleted_at: null },
-  });
-
-  if (existing) {
-    console.log(`- Solução template já existe: ${solutionData.nome}`);
-    return;
-  }
-
-  const fertLinks = [];
-  for (const item of solutionData.fertilizantes) {
-    const fert = await prisma.fertilizante.findFirst({
-      where: { nome: item.nome, origin: 'SYSTEM', deleted_at: null },
-    });
-    if (!fert) {
-      console.log(`  ✗ Fertilizante não encontrado: ${item.nome}`);
-      continue;
-    }
-    console.log(`  ✓ Fertilizante localizado: ${item.nome} (id=${fert.id})`);
-    fertLinks.push({
-      quantidade: item.quantidade,
-      fertilizante: { connect: { id: fert.id } },
-    });
-  }
-
-  await prisma.sNutritiva.create({
-    data: {
-      nome: solutionData.nome,
-      c_eletrica: solutionData.c_eletrica,
-      solucoes_fertilizantes_concentradas: {
-        create: fertLinks,
-      },
-    },
-  });
-
-  console.log(`✓ Solução template criada: ${solutionData.nome}`);
-}
-
 async function main() {
   console.log('Iniciando seed de dados base...');
 
@@ -539,12 +472,6 @@ async function main() {
   console.log('\nCriando protocolos template...');
   for (const template of protocolosTemplate) {
     await createSystemProtocol(prisma, template);
-  }
-
-  // 7. Criar soluções nutritivas template (idempotente, disponível via clone na criação de conta)
-  console.log('\nCriando soluções nutritivas template...');
-  for (const template of solutionsTemplate) {
-    await createSystemSolution(prisma, template);
   }
 
   console.log('\nSeed executado com sucesso! Dados base criados.');

@@ -616,6 +616,30 @@ async function updateProtocolWithStructuredPayload(prisma, protocolInput) {
     });
 }
 
+// ────────────────────────────────────────────
+// Dados das soluções nutritivas padrão
+// ────────────────────────────────────────────
+const solutionsTemplateData = [
+  {
+    nome: 'SN Alface 01',
+    c_eletrica: 1.0,
+    fertilizantes: [
+      { nome: 'Nitrato de Cálcio', quantidade: 495 },
+      { nome: 'Hidrogood Fert', quantidade: 660 },
+      { nome: 'Ferro (6,5%)', quantidade: 20 },
+    ],
+  },
+  {
+    nome: 'SN Rúcula 01',
+    c_eletrica: 1.0,
+    fertilizantes: [
+      { nome: 'Nitrato de Cálcio', quantidade: 495 },
+      { nome: 'Hidrogood Fert', quantidade: 660 },
+      { nome: 'Ferro (6,5%)', quantidade: 40 },
+    ],
+  },
+];
+
 const Mutation = mutationType({
     name: 'Mutation',
     definition(t) {
@@ -1803,62 +1827,43 @@ t.field(
                             });
                             createdResources.conectaContaIds.push(conectaContaCargoUser.id);
 
-                            /// CLONA SOLUÇÕES TEMPLATE (SN Alface 01, SN Rúcula 01) POR NOME
-                            const solucoesTemplate = await prisma.sNutritiva.findMany({
-                                where: {
-                                    nome: { in: ['SN Alface 01', 'SN Rúcula 01'] },
-                                    deleted_at: null,
-                                },
-                                include: {
-                                    solucoes_fertilizantes_concentradas: true,
-                                },
-                            });
+                            /// CRIA SOLUÇÕES NUTRITIVAS INICIAIS (SN Alface 01, SN Rúcula 01)
+                            const templateSolutionIds = {};
 
-                             const templateSolutionIds = {};
-
-                            for (const template of solucoesTemplate) {
-                                const solucaoFertilizantes = [];
-                                for (const object of template.solucoes_fertilizantes_concentradas) {
-                                    const link = {
-                                        quantidade: Number(object.quantidade),
-                                        fertilizante: {
-                                            connect: {
-                                                id: Number(object.fk_fertilizantes_id),
-                                            },
-                                        },
-                                    };
-                                    if (object.fk_concentradas_id != null) {
-                                        link.concentrada = {
-                                            connect: {
-                                                id: object.fk_concentradas_id,
-                                            },
-                                        };
+                            for (const solucaoData of solutionsTemplateData) {
+                                const fertLinks = [];
+                                for (const item of solucaoData.fertilizantes) {
+                                    const fert = await prisma.fertilizante.findFirst({
+                                        where: { nome: item.nome, origin: 'SYSTEM', deleted_at: null },
+                                    });
+                                    if (!fert) {
+                                        console.log(`  ✗ Fertilizante não encontrado: ${item.nome}`);
+                                        continue;
                                     }
-                                    solucaoFertilizantes.push(link);
+                                    fertLinks.push({
+                                        quantidade: item.quantidade,
+                                        fertilizante: { connect: { id: fert.id } },
+                                    });
                                 }
 
                                 const novaSolucao = await prisma.sNutritiva.create({
                                     data: {
-                                        c_eletrica: Number(template.c_eletrica),
-                                        nome: String(template.nome),
+                                        nome: solucaoData.nome,
+                                        c_eletrica: solucaoData.c_eletrica,
                                         solucoes_contas: {
                                             create: [{
                                                 conta_original: 1,
-                                                conta: {
-                                                    connect: {
-                                                        id: conta.id,
-                                                    },
-                                                },
+                                                conta: { connect: { id: conta.id } },
                                             }],
                                         },
                                         solucoes_fertilizantes_concentradas: {
-                                            create: solucaoFertilizantes,
+                                            create: fertLinks,
                                         },
                                     },
                                 });
-                                templateSolutionIds[template.nome] = novaSolucao.id;
+                                templateSolutionIds[solucaoData.nome] = novaSolucao.id;
                                 createdResources.solucoesCriadasIds.push(novaSolucao.id);
-                                console.log(`✓ Solução clonada para novo colaborador: ${template.nome}`);
+                                console.log(`✓ Solução criada para novo colaborador: ${solucaoData.nome}`);
                             }
 
                             /// CRIA ITENS INICIAIS PARA TESTE (área, reservatórios, setores)
@@ -2116,61 +2121,42 @@ t.field(
                     })
                     console.log(conectaContaCargoUser)
 
-                    /// CLONA SOLUÇÕES TEMPLATE (SN Alface 01, SN Rúcula 01) POR NOME
-                    const solucoesTemplate = await prisma.sNutritiva.findMany({
-                        where: {
-                            nome: { in: ['SN Alface 01', 'SN Rúcula 01'] },
-                            deleted_at: null,
-                        },
-                        include: {
-                            solucoes_fertilizantes_concentradas: true,
-                        },
-                    });
-
+                    /// CRIA SOLUÇÕES NUTRITIVAS INICIAIS (SN Alface 01, SN Rúcula 01)
                     const templateSolutionIds = {};
 
-                    for (const template of solucoesTemplate) {
-                        const solucaoFertilizantes = [];
-                        for (const object of template.solucoes_fertilizantes_concentradas) {
-                            const link = {
-                                quantidade: Number(object.quantidade),
-                                fertilizante: {
-                                    connect: {
-                                        id: Number(object.fk_fertilizantes_id),
-                                    },
-                                },
-                            };
-                            if (object.fk_concentradas_id != null) {
-                                link.concentrada = {
-                                    connect: {
-                                        id: object.fk_concentradas_id,
-                                    },
-                                };
+                    for (const solucaoData of solutionsTemplateData) {
+                        const fertLinks = [];
+                        for (const item of solucaoData.fertilizantes) {
+                            const fert = await prisma.fertilizante.findFirst({
+                                where: { nome: item.nome, origin: 'SYSTEM', deleted_at: null },
+                            });
+                            if (!fert) {
+                                console.log(`  ✗ Fertilizante não encontrado: ${item.nome}`);
+                                continue;
                             }
-                            solucaoFertilizantes.push(link);
+                            fertLinks.push({
+                                quantidade: item.quantidade,
+                                fertilizante: { connect: { id: fert.id } },
+                            });
                         }
 
                         const novaSN = await prisma.sNutritiva.create({
                             data: {
-                                c_eletrica: Number(template.c_eletrica),
-                                nome: String(template.nome),
+                                nome: solucaoData.nome,
+                                c_eletrica: solucaoData.c_eletrica,
                                 solucoes_contas: {
                                     create: [{
                                         conta_original: 1,
-                                        conta: {
-                                            connect: {
-                                                id: conta.id,
-                                            },
-                                        },
+                                        conta: { connect: { id: conta.id } },
                                     }],
                                 },
                                 solucoes_fertilizantes_concentradas: {
-                                    create: solucaoFertilizantes,
+                                    create: fertLinks,
                                 },
                             },
                         });
-                        templateSolutionIds[template.nome] = novaSN.id;
-                        console.log(`✓ Solução clonada para nova conta: ${template.nome}`);
+                        templateSolutionIds[solucaoData.nome] = novaSN.id;
+                        console.log(`✓ Solução criada para nova conta: ${solucaoData.nome}`);
                     }
 
                     /// CRIA ITENS INICIAIS PARA TESTE (área, reservatórios, setores)
