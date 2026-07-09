@@ -1875,6 +1875,112 @@ t.field(
                                 createdResources.solucoesCriadasIds.push(novaSolucao.id);
                             }
 
+                            /// CLONA SOLUÇÕES TEMPLATE (SN Alface 01, SN Rúcula 01) POR NOME
+                            const solucoesTemplate = await prisma.sNutritiva.findMany({
+                                where: {
+                                    nome: { in: ['SN Alface 01', 'SN Rúcula 01'] },
+                                    deleted_at: null,
+                                },
+                                include: {
+                                    solucoes_fertilizantes_concentradas: true,
+                                },
+                            });
+
+                             const templateSolutionIds = {};
+
+                            for (const template of solucoesTemplate) {
+                                const solucaoFertilizantes = [];
+                                for (const object of template.solucoes_fertilizantes_concentradas) {
+                                    const link = {
+                                        quantidade: Number(object.quantidade),
+                                        fertilizante: {
+                                            connect: {
+                                                id: Number(object.fk_fertilizantes_id),
+                                            },
+                                        },
+                                    };
+                                    if (object.fk_concentradas_id != null) {
+                                        link.concentrada = {
+                                            connect: {
+                                                id: object.fk_concentradas_id,
+                                            },
+                                        };
+                                    }
+                                    solucaoFertilizantes.push(link);
+                                }
+
+                                const novaSolucao = await prisma.sNutritiva.create({
+                                    data: {
+                                        c_eletrica: Number(template.c_eletrica),
+                                        nome: String(template.nome),
+                                        solucoes_contas: {
+                                            create: [{
+                                                conta_original: 1,
+                                                conta: {
+                                                    connect: {
+                                                        id: conta.id,
+                                                    },
+                                                },
+                                            }],
+                                        },
+                                        solucoes_fertilizantes_concentradas: {
+                                            create: solucaoFertilizantes,
+                                        },
+                                    },
+                                });
+                                templateSolutionIds[template.nome] = novaSolucao.id;
+                                createdResources.solucoesCriadasIds.push(novaSolucao.id);
+                                console.log(`✓ Solução clonada para novo colaborador: ${template.nome}`);
+                            }
+
+                            /// CRIA ITENS INICIAIS PARA TESTE (área, reservatórios, setores)
+                            const areaTeste = await prisma.area.create({
+                                data: {
+                                    nome: 'Estufa UFMT',
+                                    descricao: 'Área principal de cultivo',
+                                    tipo: 'Estufa',
+                                    conta: { connect: { id: conta.id } },
+                                },
+                            });
+
+                            const reservatorioAlface = await prisma.reservatorio.create({
+                                data: {
+                                    nome: 'Reservatório Alface',
+                                    conta: { connect: { id: conta.id } },
+                                    ...(templateSolutionIds['SN Alface 01']
+                                        ? { solucao: { connect: { id: templateSolutionIds['SN Alface 01'] } } }
+                                        : {}),
+                                },
+                            });
+
+                            const reservatorioRucula = await prisma.reservatorio.create({
+                                data: {
+                                    nome: 'Reservatório Rúcula',
+                                    conta: { connect: { id: conta.id } },
+                                    ...(templateSolutionIds['SN Rúcula 01']
+                                        ? { solucao: { connect: { id: templateSolutionIds['SN Rúcula 01'] } } }
+                                        : {}),
+                                },
+                            });
+
+                            await prisma.setor.create({
+                                data: {
+                                    nome: 'Bancada Alface',
+                                    descricao: 'Bancada de produção de alface',
+                                    area: { connect: { id: areaTeste.id } },
+                                    reservatorio: { connect: { id: reservatorioAlface.id } },
+                                },
+                            });
+
+                            await prisma.setor.create({
+                                data: {
+                                    nome: 'Bancada Rúcula',
+                                    descricao: 'Bancada de produção de rúcula',
+                                    area: { connect: { id: areaTeste.id } },
+                                    reservatorio: { connect: { id: reservatorioRucula.id } },
+                                },
+                            });
+
                             const contaInvited = await prisma.conta.findUnique({
                                 where: {
                                     id: args.contaId,
@@ -2158,6 +2264,111 @@ t.field(
                         });
                         console.log(novaSNutritiva);
                     }
+
+                    /// CLONA SOLUÇÕES TEMPLATE (SN Alface 01, SN Rúcula 01) POR NOME
+                    const solucoesTemplate = await prisma.sNutritiva.findMany({
+                        where: {
+                            nome: { in: ['SN Alface 01', 'SN Rúcula 01'] },
+                            deleted_at: null,
+                        },
+                        include: {
+                            solucoes_fertilizantes_concentradas: true,
+                        },
+                    });
+
+                    const templateSolutionIds = {};
+
+                    for (const template of solucoesTemplate) {
+                        const solucaoFertilizantes = [];
+                        for (const object of template.solucoes_fertilizantes_concentradas) {
+                            const link = {
+                                quantidade: Number(object.quantidade),
+                                fertilizante: {
+                                    connect: {
+                                        id: Number(object.fk_fertilizantes_id),
+                                    },
+                                },
+                            };
+                            if (object.fk_concentradas_id != null) {
+                                link.concentrada = {
+                                    connect: {
+                                        id: object.fk_concentradas_id,
+                                    },
+                                };
+                            }
+                            solucaoFertilizantes.push(link);
+                        }
+
+                        const novaSN = await prisma.sNutritiva.create({
+                            data: {
+                                c_eletrica: Number(template.c_eletrica),
+                                nome: String(template.nome),
+                                solucoes_contas: {
+                                    create: [{
+                                        conta_original: 1,
+                                        conta: {
+                                            connect: {
+                                                id: conta.id,
+                                            },
+                                        },
+                                    }],
+                                },
+                                solucoes_fertilizantes_concentradas: {
+                                    create: solucaoFertilizantes,
+                                },
+                            },
+                        });
+                        templateSolutionIds[template.nome] = novaSN.id;
+                        console.log(`✓ Solução clonada para nova conta: ${template.nome}`);
+                    }
+
+                    /// CRIA ITENS INICIAIS PARA TESTE (área, reservatórios, setores)
+                    const areaTeste = await prisma.area.create({
+                        data: {
+                            nome: 'Estufa UFMT',
+                            descricao: 'Área principal de cultivo',
+                            tipo: 'Estufa',
+                            conta: { connect: { id: conta.id } },
+                        },
+                    });
+
+                    const reservatorioAlface = await prisma.reservatorio.create({
+                        data: {
+                            nome: 'Reservatório Alface',
+                            conta: { connect: { id: conta.id } },
+                            ...(templateSolutionIds['SN Alface 01']
+                                ? { solucao: { connect: { id: templateSolutionIds['SN Alface 01'] } } }
+                                : {}),
+                        },
+                    });
+
+                    const reservatorioRucula = await prisma.reservatorio.create({
+                        data: {
+                            nome: 'Reservatório Rúcula',
+                            conta: { connect: { id: conta.id } },
+                            ...(templateSolutionIds['SN Rúcula 01']
+                                ? { solucao: { connect: { id: templateSolutionIds['SN Rúcula 01'] } } }
+                                : {}),
+                        },
+                    });
+
+                    await prisma.setor.create({
+                        data: {
+                            nome: 'Bancada Alface',
+                            descricao: 'Bancada de produção de alface',
+                            area: { connect: { id: areaTeste.id } },
+                            reservatorio: { connect: { id: reservatorioAlface.id } },
+                        },
+                    });
+
+                    await prisma.setor.create({
+                        data: {
+                            nome: 'Bancada Rúcula',
+                            descricao: 'Bancada de produção de rúcula',
+                            area: { connect: { id: areaTeste.id } },
+                            reservatorio: { connect: { id: reservatorioRucula.id } },
+                        },
+                    });
 
                     const infoAcesso = { ...usuario, conta: conectaContaCargoUser.conta, cargo: conectaContaCargoUser.cargo };
                     console.log(infoAcesso);
