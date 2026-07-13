@@ -2021,8 +2021,11 @@ type HomeProducaoMensal {
 }
 
 type HomeResumo {
+  activeLotProtocolIds: [Int!]!
   especiesEmAndamento: [HomeEspecieDetalhe]
+  hasActiveLotWithProtocol: Boolean!
   lotesAtivos: Int
+  lotesAtivosComProtocolo: Int!
   lotesComColheitaProxima: Int
   lotesFinalizados: Int
   lotesPorStatus: [HomeLoteStatus]

@@ -8,6 +8,9 @@ const HomeResumo = objectType({
     t.int('lotesAtivos')
     t.int('lotesFinalizados')
     t.float('taxaConclusao')
+    t.nonNull.int('lotesAtivosComProtocolo')
+    t.nonNull.boolean('hasActiveLotWithProtocol')
+    t.nonNull.list.nonNull.int('activeLotProtocolIds')
     // Novos campos
     t.list.field('lotesPorStatus', { type: 'HomeLoteStatus' })
     t.int('lotesComColheitaProxima')

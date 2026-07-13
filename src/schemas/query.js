@@ -720,6 +720,10 @@ const Query = queryType({
         const totalLotes = lotes.length
         const lotesAtivos = lotes.filter(l => l.ativo === true).length
         const lotesFinalizados = totalLotes - lotesAtivos
+        const lotesAtivosComProtocoloList = lotes.filter(l => l.ativo === true && l.fk_protocolos_id != null)
+        const lotesAtivosComProtocolo = lotesAtivosComProtocoloList.length
+        const activeLotProtocolIds = [...new Set(lotesAtivosComProtocoloList.map(l => l.fk_protocolos_id))]
+        const hasActiveLotWithProtocol = lotesAtivosComProtocolo > 0
         const taxaConclusao = totalLotes > 0
           ? parseFloat(((lotesFinalizados / totalLotes) * 100).toFixed(1))
           : 0
@@ -1018,6 +1022,9 @@ const Query = queryType({
             lotesAtivos,
             lotesFinalizados,
             taxaConclusao,
+            lotesAtivosComProtocolo,
+            hasActiveLotWithProtocol,
+            activeLotProtocolIds,
             lotesPorStatus,
             lotesComColheitaProxima,
             especiesEmAndamento,
