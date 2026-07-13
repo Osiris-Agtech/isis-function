@@ -1,8 +1,11 @@
-# Spec — Culturas iniciais "Alface" e "Rúcula" no onboarding
+# Spec — Culturas iniciais "Alface Crespa" e "Rúcula" no onboarding
+
+> Status: incorporada pela spec `.specs/features/onboarding-transacional/spec.md`.
+> A criação das culturas iniciais continua obrigatória, mas agora deve fazer parte do boundary transacional do onboarding.
 
 ## Contexto
 
-Hoje, as mutations `createUserAccount` e `inviteContributor` (ramo de novo usuário) criam dados iniciais para a nova conta: soluções nutritivas (SN Alface 01, SN Rúcula 01), área (Estufa UFMT), reservatórios e setores. Porém **não criam registros de `Cultura`**, o que impede que o usuário recém-cadastrado tenha culturas disponíveis para vincular lotes, protocolos e relatórios.
+Historicamente, as mutations `createUserAccount` e `inviteContributor` (ramo de novo usuário) criavam dados iniciais para a nova conta: soluções nutritivas (SN Alface 01, SN Rúcula 01), área (Estufa UFMT), reservatórios e setores. A necessidade original era garantir registros de `Cultura` para que o usuário recém-cadastrado tivesse culturas disponíveis para vincular lotes, protocolos e relatórios. A evolução atual desse requisito está na spec de onboarding transacional.
 
 O modelo `Cultura` requer apenas `nome` e vínculo com `Conta` via `fk_contas_id`. O campo `privado` default é `true`.
 

@@ -3,12 +3,12 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Iniciando backfill: cargo "Dono" → "Owner"...');
+  console.log('Iniciando backfill seguro: cargo "Owner" → "Dono"...');
 
   const updated = await prisma.$executeRaw`
     UPDATE cargos
-    SET cargo = 'Owner'
-    WHERE cargo = 'Dono'
+    SET cargo = 'Dono'
+    WHERE cargo = 'Owner'
   `;
 
   const [counts] = await prisma.$queryRaw`
@@ -21,8 +21,8 @@ async function main() {
 
   console.log('Relatório de backfill:', JSON.stringify({ updated: Number(updated), ...counts }, null, 2));
 
-  if (counts.dono_count > 0) {
-    throw new Error(`Backfill incompleto: ainda existem ${counts.dono_count} registro(s) com cargo = 'Dono'.`);
+  if (counts.owner_count > 0) {
+    throw new Error(`Backfill incompleto: ainda existem ${counts.owner_count} registro(s) com cargo = 'Owner'.`);
   }
 
   console.log('Backfill finalizado com sucesso.');
