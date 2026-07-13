@@ -1782,6 +1782,20 @@ t.field(
                             });
                             createdResources.contaId = conta.id;
 
+                            // CRIA CULTURAS INICIAIS (Alface, Rúcula)
+                            await prisma.cultura.create({
+                                data: {
+                                    nome: 'Alface Crespa',
+                                    conta: { connect: { id: conta.id } },
+                                },
+                            });
+                            await prisma.cultura.create({
+                                data: {
+                                    nome: 'Rúcula',
+                                    conta: { connect: { id: conta.id } },
+                                },
+                            });
+
                             const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
                             const passwordLength = 8;
                             let password = '';
@@ -1918,6 +1932,7 @@ t.field(
                                 data: {
                                     nome: 'Reservatório Alface',
                                     conta: { connect: { id: conta.id } },
+                                    volume: 1000,
                                     ...(templateSolutionIds['SN Alface 01']
                                         ? { solucao: { connect: { id: templateSolutionIds['SN Alface 01'] } } }
                                         : {}),
@@ -1928,6 +1943,7 @@ t.field(
                                 data: {
                                     nome: 'Reservatório Rúcula',
                                     conta: { connect: { id: conta.id } },
+                                    volume: 1000,
                                     ...(templateSolutionIds['SN Rúcula 01']
                                         ? { solucao: { connect: { id: templateSolutionIds['SN Rúcula 01'] } } }
                                         : {}),
@@ -2097,6 +2113,20 @@ t.field(
                     });
                     console.log(conta)
 
+                    // CRIA CULTURAS INICIAIS (Alface, Rúcula)
+                    await prisma.cultura.create({
+                        data: {
+                            nome: 'Alface',
+                            conta: { connect: { id: conta.id } },
+                        },
+                    });
+                    await prisma.cultura.create({
+                        data: {
+                            nome: 'Rúcula',
+                            conta: { connect: { id: conta.id } },
+                        },
+                    });
+
                     // # Criar o Usuário
                     const hashedSenha = await bcrypt.hash(args.senha, 10);
                     const usuario = await prisma.usuario.create({
@@ -2211,6 +2241,7 @@ t.field(
                         data: {
                             nome: 'Reservatório Alface',
                             conta: { connect: { id: conta.id } },
+                            volume: 1000,
                             ...(templateSolutionIds['SN Alface 01']
                                 ? { solucao: { connect: { id: templateSolutionIds['SN Alface 01'] } } }
                                 : {}),
@@ -2221,6 +2252,7 @@ t.field(
                         data: {
                             nome: 'Reservatório Rúcula',
                             conta: { connect: { id: conta.id } },
+                            volume: 1000,
                             ...(templateSolutionIds['SN Rúcula 01']
                                 ? { solucao: { connect: { id: templateSolutionIds['SN Rúcula 01'] } } }
                                 : {}),

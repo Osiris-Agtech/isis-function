@@ -21,59 +21,59 @@ const protocolosTemplate = [
       {
         titulo: 'Pulverização com Enraizador',
         descricao: 'Aplicar Forth Enraizador 1ml/L com pulverizador manual',
-        duracao_dias: 0, duracao_dias_real: 3, phaseKey: 'mudas',
+        duracao_dias: 0, duracao_dias_real: 1, phaseKey: 'mudas',
       },
       {
         titulo: 'Aplicação de Solução Nutritiva',
         descricao: 'Reservatório R01, receita SN Alface 01, CE 1,0 mS/cm. Aplicar com pulverizador manual ou regador até drenagem.',
-        duracao_dias: 0, duracao_dias_real: 5, phaseKey: 'mudas',
+        duracao_dias: 0, duracao_dias_real: 3, phaseKey: 'mudas',
       },
       {
         titulo: 'Pulverização com Enraizador',
         descricao: 'Forth Enraizador 1ml/L com pulverizador manual',
-        duracao_dias: 0, duracao_dias_real: 10, phaseKey: 'mudas',
+        duracao_dias: 0, duracao_dias_real: 8, phaseKey: 'mudas',
       },
       {
         titulo: 'Pulverização com Enraizador',
         descricao: 'Forth Enraizador 1ml/L com pulverizador manual',
-        duracao_dias: 0, duracao_dias_real: 17, phaseKey: 'mudas',
+        duracao_dias: 0, duracao_dias_real: 15, phaseKey: 'mudas',
       },
       {
         titulo: 'Vacinação/Prevenção',
         descricao: 'Aplicar Evidence 700 WG + Cabrio Top + Megafol. Usar EPI completo.',
-        duracao_dias: 0, duracao_dias_real: 24, phaseKey: 'mudas',
+        duracao_dias: 0, duracao_dias_real: 22, phaseKey: 'mudas',
       },
       // Berçário
       {
         titulo: 'Transplante para Berçário',
         descricao: 'Transferir plantas para Perfis Berçário 1. Reservatório R02.',
-        duracao_dias: 0, duracao_dias_real: 26, phaseKey: 'bercario',
+        duracao_dias: 0, duracao_dias_real: 24, phaseKey: 'bercario',
       },
       {
         titulo: 'Pulverização com Enraizador + Dipel',
         descricao: 'Aplicar com pulverizador manual. Usar EPI.',
-        duracao_dias: 0, duracao_dias_real: 31, phaseKey: 'bercario',
+        duracao_dias: 0, duracao_dias_real: 29, phaseKey: 'bercario',
       },
       {
         titulo: 'Pulverização com Enraizador + Megafol',
         descricao: 'Aplicar com pulverizador manual.',
-        duracao_dias: 0, duracao_dias_real: 38, phaseKey: 'bercario',
+        duracao_dias: 0, duracao_dias_real: 36, phaseKey: 'bercario',
       },
       // Crescimento Final
       {
         titulo: 'Transplante para Crescimento Final',
         descricao: 'Transferir para Perfis de Crescimento Final 1. Reservatório R02.',
-        duracao_dias: 0, duracao_dias_real: 40, phaseKey: 'crescimento_final',
+        duracao_dias: 0, duracao_dias_real: 38, phaseKey: 'crescimento_final',
       },
       {
         titulo: 'Pulverização com Enraizador + Dipel',
         descricao: 'Aplicar com pulverizador manual. Usar EPI.',
-        duracao_dias: 0, duracao_dias_real: 45, phaseKey: 'crescimento_final',
+        duracao_dias: 0, duracao_dias_real: 43, phaseKey: 'crescimento_final',
       },
       {
         titulo: 'Colheita',
         descricao: 'Colher nos Perfis de Crescimento Final 1. Registrar número de perfis colhidos e quantidade de embalagens.',
-        duracao_dias: 0, duracao_dias_real: 54, phaseKey: 'crescimento_final',
+        duracao_dias: 0, duracao_dias_real: 52, phaseKey: 'crescimento_final',
       },
     ],
   },
@@ -92,48 +92,48 @@ const protocolosTemplate = [
       {
         titulo: 'Pulverização com Enraizador',
         descricao: 'Aplicar Forth Enraizador 1ml/L com pulverizador manual',
-        duracao_dias: 0, duracao_dias_real: 3, phaseKey: 'mudas',
+        duracao_dias: 0, duracao_dias_real: 1, phaseKey: 'mudas',
       },
       {
         titulo: 'Aplicação de Solução Nutritiva',
         descricao: 'Reservatório M02, receita SN Rúcula 01, CE 1,0 mS/cm. Aplicar com pulverizador manual ou regador até drenagem.',
-        duracao_dias: 0, duracao_dias_real: 5, phaseKey: 'mudas',
+        duracao_dias: 0, duracao_dias_real: 3, phaseKey: 'mudas',
       },
       {
         titulo: 'Pulverização com Enraizador',
         descricao: 'Forth Enraizador 1ml/L com pulverizador manual',
-        duracao_dias: 0, duracao_dias_real: 10, phaseKey: 'mudas',
+        duracao_dias: 0, duracao_dias_real: 8, phaseKey: 'mudas',
       },
       {
         titulo: 'Vacinação/Prevenção',
         descricao: 'Aplicar Evidence 700 WG + Cabrio Top + Megafol. Usar EPI completo.',
-        duracao_dias: 0, duracao_dias_real: 17, phaseKey: 'mudas',
+        duracao_dias: 0, duracao_dias_real: 15, phaseKey: 'mudas',
       },
       // Crescimento Final
       {
         titulo: 'Transplante para Crescimento Final',
         descricao: 'Transferir para Perfis de Crescimento Final Rúcula 1. Reservatório R03.',
-        duracao_dias: 0, duracao_dias_real: 19, phaseKey: 'crescimento_final',
+        duracao_dias: 0, duracao_dias_real: 17, phaseKey: 'crescimento_final',
       },
       {
         titulo: 'Pulverização com Enraizador + Dipel',
         descricao: 'Aplicar com pulverizador manual. Usar EPI.',
-        duracao_dias: 0, duracao_dias_real: 24, phaseKey: 'crescimento_final',
+        duracao_dias: 0, duracao_dias_real: 22, phaseKey: 'crescimento_final',
       },
       {
         titulo: 'Pulverização com Enraizador + Dipel',
         descricao: 'Aplicar com pulverizador manual. Usar EPI.',
-        duracao_dias: 0, duracao_dias_real: 31, phaseKey: 'crescimento_final',
+        duracao_dias: 0, duracao_dias_real: 29, phaseKey: 'crescimento_final',
       },
       {
         titulo: 'Pulverização com Enraizador + Dipel',
         descricao: 'Aplicar com pulverizador manual. Usar EPI.',
-        duracao_dias: 0, duracao_dias_real: 38, phaseKey: 'crescimento_final',
+        duracao_dias: 0, duracao_dias_real: 36, phaseKey: 'crescimento_final',
       },
       {
         titulo: 'Colheita',
         descricao: 'Colher nos Perfis de Crescimento Final Rúcula 1. Registrar número de perfis colhidos e quantidade de embalagens.',
-        duracao_dias: 0, duracao_dias_real: 47, phaseKey: 'crescimento_final',
+        duracao_dias: 0, duracao_dias_real: 45, phaseKey: 'crescimento_final',
       },
     ],
   },
